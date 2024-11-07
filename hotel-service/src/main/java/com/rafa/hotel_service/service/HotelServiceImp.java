@@ -1,13 +1,11 @@
 package com.rafa.hotel_service.service;
 
-import com.rafa.hotel_service.feign.feign.CommentInterface;
 import com.rafa.hotel_service.feign.feign.OrderInterface;
 import com.rafa.hotel_service.feign.feign.RoomInterface;
 import com.rafa.hotel_service.model.Hotel;
 import com.rafa.hotel_service.model.dto.CheckRoomAvailableByOrder;
 import com.rafa.hotel_service.model.dto.HotelCardDto;
 import com.rafa.hotel_service.model.dto.HotelDetailDto;
-import com.rafa.hotel_service.model.dto.RoomDto;
 import com.rafa.hotel_service.repository.HotelRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -17,7 +15,6 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.function.ToDoubleFunction;
 import java.util.function.ToIntFunction;
-import java.util.stream.Collectors;
 
 @Service
 public class HotelServiceImp implements HotelService {
@@ -30,9 +27,6 @@ public class HotelServiceImp implements HotelService {
 
     @Autowired
     RoomInterface roomInterface;
-
-    @Autowired
-    CommentInterface commentInterface;
 
 
     public Hotel findHotelByHotelId(Long hotelId) {
@@ -103,29 +97,28 @@ public class HotelServiceImp implements HotelService {
         dto.setIntroduction(hotel.getIntroduction());
         dto.setFacilities(hotel.getFacilities());
         dto.setAddress(hotel.getAddress());
-        dto.setComments(commentInterface.getHotelComments(hotelId).getBody());
         dto.setScore(hotel.getScore());
         List<Long> roomIds = roomInterface.findRoomIdsByHotelId(hotelId).getBody();
-        List<RoomDto> rooms = roomInterface.getRoomCardsByTimeFromRoomIds(roomIds, null, null).getBody();
+//        List<RoomDto> rooms = roomInterface.getRoomCardsByTimeFromRoomIds(roomIds, null, null).getBody();
 
-        dto.setValidRooms(rooms);
+//        dto.setValidRooms(rooms);
         return dto;
     }
 
-    @Override
-    public HotelDetailDto convertHotelFilterRoom(HotelDetailDto dto, LocalDate start, LocalDate end, Integer people) {
-        //旅店頁面經查詢後資料
-        System.out.println("查詢資格包含" + start + end + people);
-        List<Long> rooms = roomInterface.findRoomIdsByHotelId(dto.getHotelId()).getBody();
-        rooms = roomInterface.filterValidRoomBySize(rooms, people).getBody();
-        rooms = orderInterface.checkHotelAvailableRooms(
-                new CheckRoomAvailableByOrder(rooms, start, end)).getBody();
-        List<RoomDto> validRooms = new ArrayList<>();
-        if (rooms != null)
-            validRooms = roomInterface.getRoomCardsByTimeFromRoomIds(rooms, start, end).getBody();
-        dto.setValidRooms(validRooms);
-        return dto;
-    }
+//    @Override
+//    public HotelDetailDto convertHotel(HotelDetailDto dto) {
+//        //旅店頁面經查詢後資料
+////        System.out.println("查詢資格包含" + start + end + people);
+////        List<Long> rooms = roomInterface.findRoomIdsByHotelId(dto.getHotelId()).getBody();
+//        rooms = roomInterface.filterValidRoomBySize(rooms, people).getBody();
+//        rooms = orderInterface.checkHotelAvailableRooms(
+//                new CheckRoomAvailableByOrder(rooms, start, end)).getBody();
+////        List<RoomDto> validRooms = new ArrayList<>();
+////        if (rooms != null)
+////            validRooms = roomInterface.getRoomCardsByTimeFromRoomIds(rooms, start, end).getBody();
+////        dto.setValidRooms(validRooms);
+//        return dto;
+//    }
 
 //    public HotelDetailDto convertHotelsToHotelDto(Hotel hotel) {
 //        //hotel頁面用資料(經查詢資料轉換)

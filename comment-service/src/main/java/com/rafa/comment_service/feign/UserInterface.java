@@ -1,6 +1,7 @@
 package com.rafa.comment_service.feign;
 
 import com.rafa.comment_service.model.dto.UserDto;
+import com.rafa.comment_service.response.ApiResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -11,6 +12,6 @@ public interface UserInterface {
     //加入要映射的方法
 
     @GetMapping("/member")
-    public ResponseEntity<UserDto> getUserProfile(@RequestHeader("Authorization") String jwt);
+    public ResponseEntity<ApiResponse<Object>> getUserProfile(@RequestHeader("Authorization") String jwt);
 
 }

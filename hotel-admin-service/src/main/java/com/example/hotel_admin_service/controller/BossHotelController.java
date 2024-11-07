@@ -9,6 +9,7 @@ import com.example.hotel_admin_service.model.dto.HotelCardDto;
 import com.example.hotel_admin_service.model.dto.HotelDto;
 import com.example.hotel_admin_service.model.dto.OrderDto;
 import com.example.hotel_admin_service.service.HotelService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,11 +31,14 @@ public class BossHotelController {
     OrderInterface orderInterface;
 
     @Autowired
+    ObjectMapper objectMapper;
+
+    @Autowired
     RoomInterface roomInterface;
 
     @PostMapping("/hotel")
     public ResponseEntity<String> createHotel(@RequestHeader("Authorization") String jwt, @RequestBody CreateHotelRequest request) {
-        Long userId = authInterface.findUserIdByJwt(jwt).getBody();
+        Long userId = objectMapper.convertValue(authInterface.findUserIdByJwt(jwt).getBody(), Long.class);
         Hotel hotel = hotelService.createHotel(userId, request);
         if (hotel != null)
             return new ResponseEntity<>("新增成功", HttpStatus.CREATED);
@@ -46,7 +50,7 @@ public class BossHotelController {
 
     @DeleteMapping("/hotel/{hotelId}")
     public ResponseEntity<String> deleteHotelByHotelId(@RequestHeader("Authorization") String jwt, @PathVariable Long hotelId) {
-        Long userId = authInterface.findUserIdByJwt(jwt).getBody();
+        Long userId = objectMapper.convertValue(authInterface.findUserIdByJwt(jwt).getBody(), Long.class);
         Hotel hotel = hotelService.findHotelByHotelId(hotelId);
         if (!Objects.equals(userId, hotel.getBossId()))
             return new ResponseEntity<>("無權限執行此操作", HttpStatus.BAD_REQUEST);
@@ -62,7 +66,7 @@ public class BossHotelController {
 
     @PutMapping("/hotel/{hotelId}")
     public ResponseEntity<String> updateHotelData(@RequestHeader("Authorization") String jwt, @PathVariable Long hotelId, @RequestBody CreateHotelRequest request) {
-        if (Boolean.FALSE.equals(authInterface.validateJwt(jwt).getBody()))
+        if (!objectMapper.convertValue(authInterface.validateJwt(jwt).getBody().getData(), Boolean.class))
             return new ResponseEntity<>("無權限執行此操作", HttpStatus.BAD_REQUEST);
         Hotel hotel = hotelService.updateHotelData(hotelId, request);
         if (hotel != null)
@@ -75,7 +79,7 @@ public class BossHotelController {
 
     @GetMapping("/hotels")
     public ResponseEntity<List<HotelCardDto>> findHotelsByBoss(@RequestHeader("Authorization") String jwt) {
-        Long userId = authInterface.findUserIdByJwt(jwt).getBody();
+        Long userId = objectMapper.convertValue(authInterface.findUserIdByJwt(jwt).getBody(), Long.class);
         System.out.println("我要找老闆的飯店" + userId);
         List<HotelCardDto> myHotels = hotelService.findHotelsByBoss(userId);
         if (myHotels != null)
@@ -104,11 +108,11 @@ public class BossHotelController {
     @PutMapping("/{hotelId}/score")
     public ResponseEntity<String> updateHotelScore(@RequestHeader("Authorization") String jwt, @PathVariable Long hotelId, @RequestBody Double score) {
         try {
-            if (Boolean.TRUE.equals(authInterface.validateJwt(jwt).getBody())) {
+            if (Boolean.TRUE.equals(objectMapper.convertValue(authInterface.validateJwt(jwt).getBody().getData(), Boolean.class))){
                 hotelService.updateHotelScore(hotelId, score);
                 return new ResponseEntity<>("修改完成", HttpStatus.OK);
             }
-        } catch (RuntimeException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
         return new ResponseEntity<>("分數修改失敗", HttpStatus.BAD_REQUEST);
@@ -117,7 +121,7 @@ public class BossHotelController {
     @GetMapping("/findBoss/{hotelId}")
     public ResponseEntity<Boolean> checkIsBoss(@RequestHeader("Authorization") String jwt, @PathVariable Long hotelId) {
         try {
-            Long userId = authInterface.findUserIdByJwt(jwt).getBody();
+            Long userId = objectMapper.convertValue(authInterface.findUserIdByJwt(jwt).getBody(), Long.class);
             Boolean result = hotelService.validateBoss(userId, hotelId);
             return new ResponseEntity<>(result, HttpStatus.OK);
         } catch (RuntimeException e) {
@@ -129,7 +133,7 @@ public class BossHotelController {
     @GetMapping("/allOrders")
     public ResponseEntity<Map<String, List<List<OrderDto>>>> findBossOrders(@RequestHeader("Authorization") String jwt) {
         try {
-            Long userId = authInterface.findUserIdByJwt(jwt).getBody();
+            Long userId = objectMapper.convertValue(authInterface.findUserIdByJwt(jwt).getBody(), Long.class);
             System.out.println("查找使用者 ID: " + userId);
 
             List<Long> bossHotels = hotelService.findHotelIdsByBossId(userId);

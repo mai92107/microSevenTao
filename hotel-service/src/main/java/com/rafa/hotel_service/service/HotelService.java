@@ -24,7 +24,7 @@ public interface HotelService {
 
     public Set<Integer> getHotelCity();
 
-    public HotelDetailDto convertHotelFilterRoom(HotelDetailDto dto, LocalDate start, LocalDate end, Integer people);
+//    public HotelDetailDto convertHotelFilterRoom(HotelDetailDto dto, LocalDate start, LocalDate end, Integer people);
 
     public List<HotelCardDto> findALLHotelsByDetail(Integer cityCode, String keyword, LocalDate start, LocalDate end, Integer people);
 

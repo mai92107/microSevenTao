@@ -41,4 +41,7 @@ public class Orders {
 
     @Enumerated(EnumType.STRING)
     private STATUS orderStatus= STATUS.PENDING;
+
+    private Boolean commented = false;
+
 }

@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.List;
 
-@FeignClient("ROOM-SERVICE-SERVICE")//加入要映射的名稱（全大寫）
+@FeignClient("ROOM-USER-SERVICE")//加入要映射的名稱（全大寫）
 public interface RoomInterface {
     //加入要映射的方法
     @GetMapping("/room/getRooms")

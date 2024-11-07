@@ -1,8 +1,6 @@
 package com.rafa.hotel_service.feign.feign;
 
 
-import com.rafa.hotel_service.model.dto.CheckRoomAvailableByOrder;
-import com.rafa.hotel_service.model.dto.RoomDto;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -13,8 +11,8 @@ import java.util.List;
 @FeignClient("ROOM-USER-SERVICE")//加入要映射的名稱（全大寫）
 public interface RoomInterface {
     //加入要映射的方法
-    @GetMapping("/room/getRooms")
-    public ResponseEntity<List<RoomDto>> getRoomCardsByTimeFromRoomIds(@RequestParam List<Long> roomIds, @RequestParam LocalDate start, @RequestParam LocalDate end);
+//    @GetMapping("/room/getRooms")
+//    public ResponseEntity<List<RoomDto>> getRoomCardsByTimeFromRoomIds(@RequestParam List<Long> roomIds, @RequestParam LocalDate start, @RequestParam LocalDate end);
 
     @GetMapping("/room/filterSize")
     public ResponseEntity<List<Long>> filterValidRoomBySize(@RequestParam List<Long> roomIds, @RequestParam Integer people);

@@ -1,11 +1,13 @@
 package com.rafa.hotel_service.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rafa.hotel_service.feign.feign.AuthInterface;
 import com.rafa.hotel_service.model.Hotel;
 import com.rafa.hotel_service.model.dto.HotelCardDto;
 import com.rafa.hotel_service.model.dto.HotelDetailDto;
 import com.rafa.hotel_service.model.dto.HotelEntity;
 import com.rafa.hotel_service.service.HotelService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -20,35 +22,36 @@ import java.util.Set;
 
 @RestController
 @RequestMapping("/hotel")
+@Slf4j
 public class HotelController {
 
     @Autowired
     HotelService hotelService;
 
     @Autowired
+    ObjectMapper objectMapper;
+
+    @Autowired
     AuthInterface authInterface;
 
     @GetMapping("/{hotelId}")
-    public ResponseEntity<HotelDetailDto> findHotelByHotelId(@PathVariable Long hotelId,
-                                                             @RequestParam(value = "start", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate start,
-                                                             @RequestParam(value = "end", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate end,
-                                                             @RequestParam(value = "people", required = false) Integer people) {
+    public ResponseEntity<HotelDetailDto> findHotelByHotelId(@PathVariable Long hotelId) {
 
         try {
             HotelDetailDto hotel = hotelService.findHotelDtoByHotelId(hotelId);
             System.out.println("搜尋這個hotel: " + hotel.getChName());
 
-            if (start == null && end == null && people == null) {
-                return new ResponseEntity<>(hotel, HttpStatus.OK);
-            }
-            HotelDetailDto detailHotel = hotelService.convertHotelFilterRoom(hotel, start, end, people);
+//            if (start == null && end == null && people == null) {
+//                return new ResponseEntity<>(hotel, HttpStatus.OK);
+//            }
+//            HotelDetailDto detailHotel = hotelService.convertHotel(hotel);
 
-            System.out.println("搜尋這間hotel許可的房間有幾間: " + detailHotel.getValidRooms().size());
+//            System.out.println("搜尋這間hotel許可的房間有幾間: " + detailHotel.getValidRooms().size());
 
-            System.out.println("我查詢入住時間是：" + start + "離開時間是：" + end);
+//            System.out.println("我查詢入住時間是：" + start + "離開時間是：" + end);
 
 
-            return new ResponseEntity<>(detailHotel, HttpStatus.OK);
+            return new ResponseEntity<>(hotel, HttpStatus.OK);
         } catch (Exception e) {
             e.printStackTrace();
             return new ResponseEntity<>(null, HttpStatus.NOT_FOUND);
@@ -69,7 +72,7 @@ public class HotelController {
     @PutMapping("/{hotelId}")
     public ResponseEntity<String> updateHotelLikeList(@RequestHeader("Authorization") String jwt, @PathVariable Long hotelId) {
         try {
-            Long userId = authInterface.findUserIdByJwt(jwt).getBody();
+            Long userId = objectMapper.convertValue(authInterface.findUserIdByJwt(jwt).getBody().getData(), Long.class);
             hotelService.updateHotelLikeList(userId, hotelId);
             return new ResponseEntity<>("已修改喜歡狀態", HttpStatus.OK);
         } catch (Exception e) {
@@ -79,9 +82,10 @@ public class HotelController {
     }
 
     @GetMapping("/userFavorites")
-    public ResponseEntity<List<HotelCardDto>> getUserFavoriteHotels(@RequestHeader("Authorization")String jwt) {
+    public ResponseEntity<List<HotelCardDto>> getUserFavoriteHotels(@RequestHeader("Authorization") String jwt) {
         try {
-            Long userId = authInterface.findUserIdByJwt(jwt).getBody();
+            Long userId = objectMapper.convertValue(authInterface.findUserIdByJwt(jwt).getBody().getData(), Long.class);
+            log.info("使用者"+userId);
             List<HotelCardDto> favoriteHotels = hotelService.getFavoriteHotelsByUserId(userId);
             return new ResponseEntity<>(favoriteHotels, HttpStatus.OK);
         } catch (Exception e) {
@@ -90,10 +94,12 @@ public class HotelController {
     }
 
     @GetMapping("/{hotelId}/userFavorites")
-    public ResponseEntity<Boolean> checkIsUserFavorite(@RequestHeader("Authorization")String jwt, @PathVariable Long hotelId) {
+    public ResponseEntity<Boolean> checkIsUserFavorite(@RequestHeader("Authorization") String jwt, @PathVariable Long hotelId) {
         try {
-            Long userId = authInterface.findUserIdByJwt(jwt).getBody();
-            Boolean isFavorite = hotelService.checkIsFavorite(userId,hotelId);
+            Long userId = objectMapper.convertValue(authInterface.findUserIdByJwt(jwt).getBody().getData(), Long.class);
+            log.info("使用者"+userId);
+
+            Boolean isFavorite = hotelService.checkIsFavorite(userId, hotelId);
             return new ResponseEntity<>(isFavorite, HttpStatus.OK);
         } catch (Exception e) {
             return new ResponseEntity<>(null, HttpStatus.NOT_FOUND);
@@ -102,11 +108,11 @@ public class HotelController {
 
     @GetMapping("/hotels")
     public ResponseEntity<HotelEntity> getHotels() {
-        try{
+        try {
             System.out.println("我要搜尋全部hotel");
             HotelEntity allHotelType = new HotelEntity();
-            List<HotelCardDto> filteredHotel = hotelService.findALLHotelsByDetail(null, null,null,null,null);
-            System.out.println("符合標準的hotel有幾間"+filteredHotel.size());
+            List<HotelCardDto> filteredHotel = hotelService.findALLHotelsByDetail(null, null, null, null, null);
+            System.out.println("符合標準的hotel有幾間" + filteredHotel.size());
             allHotelType.setBestHotels(hotelService.sortHotelsByScore(filteredHotel));
             allHotelType.setHotHotels(hotelService.sortHotelsByOrders(filteredHotel));
             allHotelType.setNewHotels(hotelService.sortHotelsByBuildDate(filteredHotel));
@@ -122,13 +128,13 @@ public class HotelController {
 
     @GetMapping("/find")
     public ResponseEntity<HotelEntity> searchHotelByDetails(@RequestParam(value = "cityCode", required = false) Integer cityCode,
-                                                            @RequestParam(value = "start",required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate start,
-                                                            @RequestParam(value = "end",required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate end,
+                                                            @RequestParam(value = "start", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate start,
+                                                            @RequestParam(value = "end", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate end,
                                                             @RequestParam(value = "people", required = false) Integer people,
                                                             @RequestParam(value = "keyword", required = false) String keyword) {
         System.out.println("here!!!!");
 
-        List<HotelCardDto> filteredHotel = hotelService.findALLHotelsByDetail(cityCode, keyword,start,end,people);
+        List<HotelCardDto> filteredHotel = hotelService.findALLHotelsByDetail(cityCode, keyword, start, end, people);
 
         HotelEntity allHotelType = new HotelEntity();
         allHotelType.setBestHotels(hotelService.sortHotelsByScore(filteredHotel));
@@ -138,7 +144,6 @@ public class HotelController {
 
         return new ResponseEntity<>(allHotelType, HttpStatus.OK);
     }
-
 
 
 }

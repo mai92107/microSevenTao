@@ -15,7 +15,9 @@ public class Comment {
 	private String comment;
 	private Integer rate;
 	private Long hotelId;
+	private Long roomId;
 	private String userName;
 	private String userPhoto;
 	private Long userId;
+	private Long orderId;
 }

@@ -1,5 +1,6 @@
 package com.example.auth_service.service;
 
+import com.example.auth_service.exception.*;
 import com.example.auth_service.model.USER_ROLE;
 import com.example.auth_service.model.Users;
 import com.example.auth_service.model.dto.LoginResponse;
@@ -38,45 +39,53 @@ public class AuthenticationServiceImp implements AuthenticationService {
     private BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(12);
 
     @Override
-    public LoginResponse verifyUser(SignInRequest request) {
+    public LoginResponse verifyUser(SignInRequest request) throws LoginErrorException {
 
-        UserDetails userDetails = userDetailService.loadUserByUsername(request.getUserName());
+        UserDetails userDetails = null;
+        try{
+            userDetails = userDetailService.loadUserByUsername(request.getUserName());
+        }catch (Exception e){
+            System.out.println(request.getUserName() + "沒有註冊過");
+            throw new UsernameErrorException();
+        }
 
-        if (userDetails == null) {
-            System.out.println(request.getUserName() + "沒有註冊過");
-            throw new UsernameNotFoundException("使用者帳號錯誤");
+
+//        if (userDetails == null) {
+//            System.out.println(request.getUserName() + "沒有註冊過");
+//            throw new UsernameErrorException();
+//        }
+        Authentication authentication =null;
+        try{
+            authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            request.getUserName(),
+                            request.getPassWord()
+                    )
+            );
+            System.out.println("登入成功"+authentication.toString());
+            USER_ROLE role = userDetails.getAuthorities().stream()
+                    .map(GrantedAuthority::getAuthority)
+                    .map(USER_ROLE::valueOf)
+                    .findFirst()
+                    .orElse(USER_ROLE.ROLE_CUSTOMER);
+            Users user = userDetailService.findUserByUserNameFromAccountOrEmail(request.getUserName());
+            LoginResponse response = new LoginResponse();
+            response.setJwt(jwtProvider.generateToken(authentication));
+            response.setRole(role);
+            response.setUsername(userDetails.getUsername());
+            response.setUserId(user.getUserId());
+            return response;
+        }catch(Exception e){
+            throw new PasswordErrorException();
         }
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.getUserName(),
-                        request.getPassWord()
-                )
-        );
-        if (!authentication.isAuthenticated()) {
-            System.out.println(request.getUserName() + "沒有註冊過");
-            throw new BadCredentialsException("使用者 " + request.getUserName() + " 密碼錯誤");
-        }
-        System.out.println("登入成功"+authentication.toString());
-        USER_ROLE role = userDetails.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .map(USER_ROLE::valueOf)
-                .findFirst()
-                .orElse(USER_ROLE.ROLE_CUSTOMER);
-        Users user = userDetailService.findUserByUserNameFromAccountOrEmail(request.getUserName());
-        LoginResponse response = new LoginResponse();
-        response.setJwt(jwtProvider.generateToken(authentication));
-        response.setRole(role);
-        response.setUsername(userDetails.getUsername());
-        response.setUserId(user.getUserId());
-        return response;
     }
 
     @Override
-    public LoginResponse signUp(SignUpRequest request) throws Exception {
+    public LoginResponse signUp(SignUpRequest request) throws DuplicateEmailException {
 
         Users userCheck = userDetailService.findUserByUserNameFromAccountOrEmail(request.getEmail());
         if (userCheck != null)
-            throw new BadCredentialsException("此信箱已註冊");
+            throw new DuplicateEmailException();
 
         Users user = new Users(USER_ROLE.ROLE_CUSTOMER, encoder.encode(request.getPassword()), request.getEmail());
         user = authRepository.save(user);
@@ -93,8 +102,11 @@ public class AuthenticationServiceImp implements AuthenticationService {
     }
 
     @Override
-    public void updateAccount(Long userId, String account) {
-        Users user = authRepository.findById(userId).orElseThrow(() -> new RuntimeException("查無此使用者"));
+    public void updateAccount(Long userId, String account) throws DuplicateAccountException {
+        Users fakeUser = authRepository.findUserByAccount(account);
+        if(fakeUser!=null)
+            throw new DuplicateAccountException(account);
+        Users user = authRepository.findById(userId).get();
         System.out.println("找到使用者" + user.getUserId());
         user.setAccount(account);
         authRepository.save(user);

@@ -18,17 +18,31 @@ public class RoomController {
     @Autowired
     RoomService roomService;
 
-    @GetMapping("/getRooms")
-    public ResponseEntity<List<RoomCardDto>> getRoomCardsByTimeFromRoomIds(@RequestParam List<Long> roomIds,@RequestParam(required = false) LocalDate start, @RequestParam(required = false) LocalDate end) {
+    @GetMapping("/getRooms/{hotelId}")
+    public ResponseEntity<List<RoomCardDto>> getRoomCardsFromHotelId(@PathVariable Long hotelId, @RequestParam(required = false) Integer people, @RequestParam(required = false) LocalDate start, @RequestParam(required = false) LocalDate end) {
         try {
-            System.out.println("我要轉換room數量"+roomIds.size());
-
-            List<RoomCardDto> roomCards = roomIds.stream().map(rid->roomService.convertRoomToRoomCard(rid,start,end)).toList();
+            List<Long> roomIds = roomService.findRoomIdsByHotelId(hotelId);
+            System.out.println("我要轉換room數量" + roomIds.size());
+            if (people != null)
+                roomIds = roomService.filterInvalidRoomByDetails(roomIds, people);
+            List<RoomCardDto> roomCards = roomIds.stream().map(rid -> roomService.convertRoomToRoomCard(rid, start, end)).toList();
             System.out.println("轉換完畢");
             return new ResponseEntity<>(roomCards, HttpStatus.OK);
         } catch (RuntimeException e) {
             e.printStackTrace();
-            return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
+            return new ResponseEntity<>(null, HttpStatus .BAD_REQUEST);
+        }
+    };
+
+    @GetMapping("/getRooms")
+    public ResponseEntity<List<RoomCardDto>> getRoomCardsByTimeFromRoomIds(@RequestParam List<Long> roomIds, @RequestParam(required = false) LocalDate start, @RequestParam(required = false) LocalDate end){
+        try {
+            List<RoomCardDto> roomCards = roomIds.stream().map(rid -> roomService.convertRoomToRoomCard(rid, start, end)).toList();
+            System.out.println("轉換完畢");
+            return new ResponseEntity<>(roomCards, HttpStatus.OK);
+        } catch (RuntimeException e) {
+            e.printStackTrace();
+            return new ResponseEntity<>(null, HttpStatus .BAD_REQUEST);
         }
     };
 
@@ -48,12 +62,14 @@ public class RoomController {
     public ResponseEntity<List<Room>> findRoomsByHotelId(@PathVariable Long hotelId) {
         try {
             List<Room> rooms = roomService.findRoomByHotelId(hotelId);
-            System.out.println("搜尋這個旅店"+hotelId);
+            System.out.println("搜尋這個旅店" + hotelId);
             return new ResponseEntity<>(rooms, HttpStatus.OK);
         } catch (Exception e) {
             return new ResponseEntity<>(null, HttpStatus.NOT_FOUND);
         }
-    };
+    }
+
+    ;
 
     @GetMapping("/{hotelId}/roomIds")
     public ResponseEntity<List<Long>> findRoomIdsByHotelId(@PathVariable Long hotelId) {
@@ -64,31 +80,38 @@ public class RoomController {
         } catch (Exception e) {
             return new ResponseEntity<>(null, HttpStatus.NOT_FOUND);
         }
-    };
+    }
+
+    ;
+
     @GetMapping("/roomNames")
-    public ResponseEntity<List<String>> findRoomNamesByRoomIds(@RequestParam List<Long> roomId){
+    public ResponseEntity<List<String>> findRoomNamesByRoomIds(@RequestParam List<Long> roomId) {
         try {
             List<String> rooms = roomService.findRoomNamesByRoomIds(roomId);
             return new ResponseEntity<>(rooms, HttpStatus.OK);
         } catch (Exception e) {
             return new ResponseEntity<>(null, HttpStatus.NOT_FOUND);
         }
-    };
+    }
+
+    ;
 
     @GetMapping("/{roomId}/hotelId")
-    public ResponseEntity<Long> findHotelIdByRoomId(@PathVariable Long roomId){
+    public ResponseEntity<Long> findHotelIdByRoomId(@PathVariable Long roomId) {
         try {
             Long hotelId = roomService.findHotelIdByRoomId(roomId);
             return new ResponseEntity<>(hotelId, HttpStatus.OK);
         } catch (Exception e) {
             return new ResponseEntity<>(null, HttpStatus.NOT_FOUND);
         }
-    };
+    }
+
+    ;
 
     @GetMapping("/minPrice")
-    public  ResponseEntity<Integer> getMinPricePerDay(@RequestParam List<Long> roomIds,@RequestParam LocalDate start,@RequestParam LocalDate end,@RequestParam(required = false) Integer people){
-        try{
-            Integer minPrice = roomService.getHotelMinPricePerDay(roomIds,start,end);
+    public ResponseEntity<Integer> getMinPricePerDay(@RequestParam List<Long> roomIds, @RequestParam LocalDate start, @RequestParam LocalDate end, @RequestParam(required = false) Integer people) {
+        try {
+            Integer minPrice = roomService.getHotelMinPricePerDay(roomIds, start, end);
             return new ResponseEntity<>(minPrice, HttpStatus.OK);
 
         } catch (RuntimeException e) {

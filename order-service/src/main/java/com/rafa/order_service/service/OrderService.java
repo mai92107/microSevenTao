@@ -2,6 +2,7 @@ package com.rafa.order_service.service;
 
 
 import com.rafa.order_service.model.Orders;
+import com.rafa.order_service.model.dto.OrderDto;
 import com.rafa.order_service.model.dto.UserDto;
 
 import java.time.LocalDate;
@@ -14,12 +15,12 @@ public interface OrderService {
 
     public boolean isRoomAvailable(Long roomId, LocalDate start, LocalDate end);
 
-    public List<Orders> getUserFinishedOrder(Long userId);
-    public List<Orders> getUserCanceledOrder(Long userId);
-    public List<Orders> getUserPendingOrder(Long userId);
-    public List<Orders> getUserDisannulOrder(Long userId);
+    public List<OrderDto> getUserFinishedOrder(Long userId);
+    public List<OrderDto> getUserCanceledOrder(Long userId);
+    public List<OrderDto> getUserPendingOrder(Long userId);
+    public List<OrderDto> getUserDisannulOrder(Long userId);
 
-    public List<Orders> getUserValidOrder(Long userId);
+    public List<OrderDto> getUserValidOrder(Long userId);
 
     public boolean deleteInvalidOrderFromUser(Long userId, long orderId);
 
@@ -30,4 +31,8 @@ public interface OrderService {
     public Orders cancelOrder(Long orderId);
 
     public Orders wantCancelOrder(Long orderId);
+
+    public Orders findOrderByOrderId(Long orderId);
+
+    public Boolean updateOrderCommentStatus(Long userId, Long orderId, Boolean status);
 }
