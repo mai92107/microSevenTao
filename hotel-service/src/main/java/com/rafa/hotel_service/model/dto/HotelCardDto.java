@@ -3,10 +3,11 @@ package com.rafa.hotel_service.model.dto;
 
 import lombok.Data;
 
+import java.io.Serializable;
 import java.util.List;
 
 @Data
-public class HotelCardDto {
+public class HotelCardDto implements Serializable {
     //首頁卡片用
     private Long hotelId;
     private String picture;

@@ -5,10 +5,11 @@ import com.rafa.order_service.model.STATUS;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.io.Serializable;
 import java.time.LocalDate;
 
 @Data
-public class OrderDto {
+public class OrderDto implements Serializable {
 
     private long id;
 

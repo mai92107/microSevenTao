@@ -4,6 +4,8 @@ import com.rafa.order_admin_service.model.Orders;
 import com.rafa.order_admin_service.model.STATUS;
 import com.rafa.order_admin_service.repository.OrderRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -21,6 +23,7 @@ public class OrderServiceImp implements OrderService {
     public List<Orders> findByRoomId(Long roomId) {
         return orderRepository.findByRoomId(roomId);
     }
+
 
     @Override
     public List<Orders> getOrdersByRoomList(List<Long> roomIds) {

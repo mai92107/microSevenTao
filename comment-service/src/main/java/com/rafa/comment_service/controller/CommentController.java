@@ -68,7 +68,7 @@ public class CommentController {
     public ResponseEntity<String> deleteComment(@RequestHeader("Authorization") String jwt, @PathVariable Long commentId) {
         try {
             Long userId = objectMapper.convertValue(authInterface.findUserIdByJwt(jwt).getBody().getData(), Long.class);
-            Comment comment = commentService.findCommentByCommentId(commentId);
+            CommentDto comment = commentService.findCommentByCommentId(commentId);
             if (comment != null)
                 orderInterface.updateOrderCommentStatus(jwt, comment.getOrderId(), false);
             commentService.deleteComment(userId, commentId);

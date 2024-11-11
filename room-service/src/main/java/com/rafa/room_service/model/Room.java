@@ -4,31 +4,33 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.io.Serializable;
 import java.util.List;
 
 @Entity
 @Data
-public class Room {
+public class Room implements Serializable {
+    private static final long serialVersionUID = 1L;
 
-	@Id
-	@GeneratedValue(strategy = GenerationType.AUTO)
-	private Long roomId;
+    @Id
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private Long roomId;
 
-	@ElementCollection
-	private List<String> roomPic;
+    @ElementCollection(fetch = FetchType.EAGER)
+    private List<String> roomPic;
 
-	private String roomName;
+    private String roomName;
 
-	@ElementCollection
-	private List<String> specialties;
+    @ElementCollection(fetch = FetchType.EAGER)
+    private List<String> specialties;
 
-	@ElementCollection
-	private List<Integer> prices;
+    @ElementCollection(fetch = FetchType.EAGER)
+    private List<Integer> prices;
 
-	private int roomSize;
+    private int roomSize;
 
-	private int capacity;
+    private int capacity;
 
-	private Long hotelId;
+    private Long hotelId;
 
 }

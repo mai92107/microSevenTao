@@ -16,5 +16,5 @@ public interface CommentService {
 
     public Double countHotelRate(Long hotelId);
 
-    public Comment findCommentByCommentId(Long commentId);
+    public CommentDto findCommentByCommentId(Long commentId);
 }

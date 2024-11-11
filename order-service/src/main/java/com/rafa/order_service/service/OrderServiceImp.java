@@ -9,6 +9,9 @@ import com.rafa.order_service.model.dto.OrderDto;
 import com.rafa.order_service.model.dto.UserDto;
 import com.rafa.order_service.repository.OrderRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -35,7 +38,7 @@ public class OrderServiceImp implements OrderService {
 
     @Override
     public List<OrderDto> getUserFinishedOrder(Long userId) {
-        orderRepository.updateExpiredOrders();
+        orderRepository.updateValidExpiredOrders();
         System.out.println("找使用者" + userId + "訂單有幾筆" + orderRepository.findByUserId(userId).size());
         List<Orders> orders = orderRepository.findByUserId(userId).stream().filter(o -> o.getOrderStatus() == STATUS.FINISHED).toList();
         return orders.stream().map(o -> objectMapper.convertValue(o, OrderDto.class)).toList();
@@ -43,6 +46,7 @@ public class OrderServiceImp implements OrderService {
 
     @Override
     public List<OrderDto> getUserCanceledOrder(Long userId) {
+        orderRepository.updateInvalidExpiredOrders();
         List<Orders> orders = orderRepository.findByUserId(userId).stream().filter(o -> o.getOrderStatus() == STATUS.CANCELED).toList();
         return orders.stream().map(o -> objectMapper.convertValue(o, OrderDto.class)).toList();
     }
@@ -74,16 +78,17 @@ public class OrderServiceImp implements OrderService {
             System.out.println("此訂單是空的");
             return false;
         }
-        if (!Objects.equals(order.get().getUserId(), userId)) {
+        Orders existOrder = order.get();
+        if (!Objects.equals(existOrder.getUserId(), userId)) {
             System.out.println("無法刪除其他人訂單");
             return false;
         }
-        if (order.get().getCheckOutDate().isAfter(LocalDate.now())) {
+        if (existOrder.getOrderStatus() != STATUS.FINISHED && existOrder.getOrderStatus() != STATUS.CANCELED) {
             System.out.println("訂單未完成，無法刪除");
             return false;
         }
-        order.get().setUserId(null);
-        orderRepository.save(order.get());
+        existOrder.setUserId(null);
+        orderRepository.save(existOrder);
         return true;
     }
 

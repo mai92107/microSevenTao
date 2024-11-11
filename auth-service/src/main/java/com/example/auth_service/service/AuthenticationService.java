@@ -17,5 +17,5 @@ public interface AuthenticationService {
 
     public void updateAccount(Long userId , String account) throws DuplicateAccountException;
 
-    public void updateRole(Long userId, USER_ROLE role);
+    public void updateRole(Long userId, USER_ROLE role) throws RequestEmptyException;
 }

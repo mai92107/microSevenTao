@@ -1,13 +1,12 @@
 package com.example.hotel_admin_service.model.dto;
 
-import com.example.hotel_admin_service.model.Address;
-import com.example.hotel_admin_service.model.Comment;
 import lombok.Data;
 
+import java.io.Serializable;
 import java.util.List;
 
 @Data
-public class HotelCardDto {
+public class HotelCardDto implements Serializable {
 
     private Long hotelId;
     private String picture;

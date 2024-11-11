@@ -8,6 +8,8 @@ import com.rafa.comment_service.model.dto.OrderDto;
 import com.rafa.comment_service.model.dto.UserDto;
 import com.rafa.comment_service.repository.CommentRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -74,8 +76,8 @@ public class CommentServiceImp implements CommentService {
     }
 
     @Override
-    public Comment findCommentByCommentId(Long commentId) {
-        return commentRepository.findById(commentId).orElse(null);
+    public CommentDto findCommentByCommentId(Long commentId) {
+        return objectMapper.convertValue(commentRepository.findById(commentId).orElse(null), CommentDto.class);
     }
 
 

@@ -3,6 +3,7 @@ package com.rafa.room_admin_service.model;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.io.Serializable;
 import java.util.List;
 
 @Entity
@@ -13,15 +14,15 @@ public class Room {
 	@GeneratedValue(strategy = GenerationType.AUTO)
 	private Long roomId;
 
-	@ElementCollection
+	@ElementCollection(fetch = FetchType.EAGER)
 	private List<String> roomPic;
 
 	private String roomName;
 
-	@ElementCollection
+	@ElementCollection(fetch = FetchType.EAGER)
 	private List<String> specialties;
 
-	@ElementCollection
+	@ElementCollection(fetch = FetchType.EAGER)
 	private List<Integer> prices;
 
 	private int roomSize;

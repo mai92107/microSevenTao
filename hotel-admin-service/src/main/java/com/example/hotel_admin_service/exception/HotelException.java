@@ -1,9 +1,7 @@
-package com.rafa.hotel_service.exception;
+package com.example.hotel_admin_service.exception;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
-
-import java.time.LocalDate;
 
 @Data
 @AllArgsConstructor

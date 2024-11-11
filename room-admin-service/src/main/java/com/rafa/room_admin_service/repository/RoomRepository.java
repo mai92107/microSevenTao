@@ -9,6 +9,7 @@ import java.util.List;
 
 public interface RoomRepository extends JpaRepository<Room, Long> {
 
+    @Query("SELECT DISTINCT r FROM Room r LEFT JOIN FETCH r.roomPic WHERE r.hotelId = :hotelId")
     public List<Room> findByHotelId(Long hotelId);
 
     @Query("SELECT r.roomId FROM Room r WHERE hotelId = :hotelId")

@@ -39,4 +39,11 @@ public class GlobalExceptionHandler {
         ApiResponse<Object> response = ApiResponse.error(HttpStatus.BAD_REQUEST.value(), e.getMessage());
         return new ResponseEntity<>(response, HttpStatusCode.valueOf((response.getStatus())));
     }
+
+    @ExceptionHandler(UserNotFoundException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ResponseEntity<com.example.user_service.response.ApiResponse<Object>> handleUserNotFoundException(UserNotFoundException e){
+        ApiResponse<Object> response = ApiResponse.error(HttpStatus.BAD_REQUEST.value(), e.getMessage());
+        return new ResponseEntity<>(response, HttpStatusCode.valueOf((response.getStatus())));
+    }
 }

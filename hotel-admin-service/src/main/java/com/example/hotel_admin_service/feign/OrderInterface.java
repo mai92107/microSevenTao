@@ -2,7 +2,6 @@ package com.example.hotel_admin_service.feign;
 
 
 
-import com.example.hotel_admin_service.model.Comment;
 import com.example.hotel_admin_service.model.dto.OrderDto;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.ResponseEntity;

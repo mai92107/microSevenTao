@@ -1,17 +1,21 @@
 package com.example.hotel_admin_service.model;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
 
+import java.io.Serializable;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 @Data
 @Entity
-public class Hotel {
+public class Hotel implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -19,24 +23,24 @@ public class Hotel {
 
     private Long bossId;
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "hotel_pictures", joinColumns = @JoinColumn(name = "hotel_id"))
     @Column(name = "picture_url")
     private List<String> pictures;
-
     private String chName;
     private String enName;
     private String introduction;
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     private List<String> facilities;
 
     @OneToOne(cascade = CascadeType.PERSIST)
     private Address address;
 
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime buildDate;
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "hotel_liked_by_users_ids", joinColumns = @JoinColumn(name = "hotel_id"))
     @Column(name = "user_id")
     private List<Long> likedByUsersIds;

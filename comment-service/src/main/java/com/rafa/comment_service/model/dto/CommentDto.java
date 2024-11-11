@@ -6,9 +6,11 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import lombok.Data;
 
+import java.io.Serializable;
+
 @Data
 @Entity
-public class CommentDto {
+public class CommentDto implements Serializable {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.AUTO)
@@ -17,6 +19,7 @@ public class CommentDto {
 	private String comment;
 	private Integer rate;
 	private Long hotelId;
+	private Long orderId;
 	private Long roomId;
 	private String userName;
 	private String userPhoto;

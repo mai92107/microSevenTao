@@ -1,42 +1,77 @@
 package com.example.hotel_admin_service.service;
 
-import com.example.hotel_admin_service.feign.CommentInterface;
+import com.example.hotel_admin_service.exception.HotelNotFoundException;
 import com.example.hotel_admin_service.feign.RoomInterface;
 import com.example.hotel_admin_service.model.Address;
-import com.example.hotel_admin_service.model.Comment;
 import com.example.hotel_admin_service.model.Hotel;
 import com.example.hotel_admin_service.model.dto.CreateHotelRequest;
 import com.example.hotel_admin_service.model.dto.HotelCardDto;
 import com.example.hotel_admin_service.model.dto.HotelDto;
-import com.example.hotel_admin_service.model.dto.RoomDto;
-import com.example.hotel_admin_service.repository.AddressRepository;
 import com.example.hotel_admin_service.repository.HotelRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.transaction.Transactional;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.redis.core.BoundHashOperations;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 @Service
+@Slf4j
 public class HotelServiceImp implements HotelService {
 
     @Autowired
     HotelRepository hotelRepository;
 
     @Autowired
-    AddressRepository addressRepository;
-
-    @Autowired
     RoomInterface roomInterface;
 
     @Autowired
-    CommentInterface commentInterface;
+    ObjectMapper objectMapper;
 
+    @Autowired
+    RedisTemplate<String,Hotel> redisTemplate;
+
+    private BoundHashOperations<String, String, Hotel> getHotelOperation() {
+        return redisTemplate.boundHashOps("hotel");
+    }
+
+    private List<String> extractPictures(Map<String, String> pictureMap) {
+        List<String> pictures = new ArrayList<>();
+        if (pictureMap != null) {
+            if (pictureMap.get("firstPic") != null)
+                pictures.add(pictureMap.get("firstPic"));
+            if (pictureMap.get("secondPic") != null)
+                pictures.add(pictureMap.get("secondPic"));
+            if (pictureMap.get("thirdPic") != null)
+                pictures.add(pictureMap.get("thirdPic"));
+        }
+        return pictures;
+    }
+
+    private Address extractAddress(Address oldAddress) {
+        if (oldAddress != null) {
+            Address newAddress = new Address();
+            newAddress.setCity(oldAddress.getCity());
+            newAddress.setDistrict(oldAddress.getDistrict());
+            newAddress.setStreet(oldAddress.getStreet());
+            newAddress.setNumber(oldAddress.getNumber());
+            return newAddress;
+        }
+        return new Address();
+    }
+
+    @CacheEvict(value = "city",allEntries = true)
+    @Transactional
     @Override
-    public Hotel createHotel(Long bossId, CreateHotelRequest request) {
+    public HotelDto createHotel(Long bossId, CreateHotelRequest request) {
 
         Hotel newHotel = new Hotel();
         newHotel.setChName(request.getChName());
@@ -47,41 +82,29 @@ public class HotelServiceImp implements HotelService {
         newHotel.setBossId(bossId);
         newHotel.setScore(0);
         newHotel.setBuildDate(LocalDateTime.now(Clock.systemUTC()));
-        Address address = request.getAddress();
-        if (address != null) {
-            Address newAddress = new Address();
-            newAddress.setCity(address.getCity());
-            newAddress.setDistrict(address.getDistrict());
-            newAddress.setStreet(address.getStreet());
-            newAddress.setNumber(address.getNumber());
-            newHotel.setAddress(newAddress);
-        }
-
-        Map<String, String> pictureMap = request.getPictures();
-        List<String> pictures = new CopyOnWriteArrayList<>();
-
-        if (pictureMap != null) {
-            if (pictureMap.get("firstPic") != null)
-                pictures.add(pictureMap.get("firstPic"));
-            if (pictureMap.get("secondPic") != null)
-                pictures.add(pictureMap.get("secondPic"));
-            if (pictureMap.get("thirdPic") != null)
-                pictures.add(pictureMap.get("thirdPic"));
-        }
+        Address address = extractAddress(request.getAddress());
+        newHotel.setAddress(address);
+        List<String> pictures = extractPictures(request.getPictures());
         newHotel.setPictures(pictures);
-        hotelRepository.save(newHotel);
-        return newHotel;
-    }
+        Hotel buildHotel = hotelRepository.save(newHotel);
 
+        getHotelOperation().put(buildHotel.getHotelId()+"",buildHotel);
+        log.info("(createHotel)旅店建立完成，存入redis");
+
+        return convertHotelsToHotelDto(newHotel);
+    }
+    @CacheEvict(value = "city",allEntries = true)
+    @Transactional
     @Override
-    public boolean deleteHotelByHotelId(Long hotelId) {
+    public boolean deleteHotelByHotelId(Long hotelId) throws HotelNotFoundException {
         Optional<Hotel> hotel = hotelRepository.findById(hotelId);
         if (hotel.isPresent()) {
             hotelRepository.deleteById(hotelId);
-            System.out.println("hotelId" + hotelId + "已成功刪除");
+            log.info("(deleteHotelByHotelId)hotelId" + hotelId + "已成功刪除");
+            getHotelOperation().delete(hotelId+"");
             return true;
         } else
-            return false;
+            throw new HotelNotFoundException(hotelId);
     }
 
     public HotelCardDto convertHotelToHotelCardDto(Hotel hotel) {
@@ -91,9 +114,7 @@ public class HotelServiceImp implements HotelService {
         hc.setEnName(hotel.getEnName());
         hc.setIntroduction(hotel.getIntroduction());
         hc.setHotelId(hotel.getHotelId());
-        System.out.println("轉換中..."+hotel.getHotelId());
         List<String> roomNames = roomInterface.findRoomNamesByHotelId(hotel.getHotelId()).getBody();
-        System.out.println("接收到"+roomNames);
         if (roomNames != null)
             hc.setRoomName(roomNames);
         if (!hotel.getPictures().isEmpty())
@@ -102,93 +123,81 @@ public class HotelServiceImp implements HotelService {
     }
 
     @Override
-    public List<HotelCardDto> findHotelsByBoss(Long bossId) {
+    public List<HotelCardDto> findHotelsByBoss(Long bossId) throws HotelNotFoundException {
         List<Hotel> myHotels = hotelRepository.findByBossId(bossId);
+        if (myHotels.isEmpty())
+            throw new HotelNotFoundException(bossId,null);
         List<HotelCardDto> newHotels = new ArrayList<>();
         for (Hotel hotel : myHotels) {
-            System.out.println("旅店-" + hotel.getChName());
             newHotels.add(convertHotelToHotelCardDto(hotel));
-            System.out.println("轉換完畢");
         }
         return newHotels;
     }
 
+    @CacheEvict(value = "city",allEntries = true)
+    @Transactional
     @Override
-    public Hotel findHotelByHotelId(Long hotelId) {
-        return hotelRepository.findById(hotelId).orElse(null);
-    }
-
-    @Override
-    public Hotel updateHotelData(Long hotelId, CreateHotelRequest request) {
+    public HotelDto updateHotelData(Long hotelId, CreateHotelRequest request) throws HotelNotFoundException {
         Hotel hotel = hotelRepository.findById(hotelId).orElseThrow(
-                () -> new RuntimeException("Hotel not found with id: " + hotelId)
+                () -> new HotelNotFoundException(hotelId)
         );
-
         hotel.setChName(request.getChName());
         hotel.setEnName(request.getEnName());
         hotel.setIntroduction(request.getIntroduction());
         hotel.setFacilities(request.getFacilities());
-        Address address = new Address();
-        address.setCity(request.getAddress().getCity());
-        address.setDistrict(request.getAddress().getDistrict());
-        address.setStreet(request.getAddress().getStreet());
-        address.setNumber(request.getAddress().getNumber());
+        Address address = extractAddress(request.getAddress());
         hotel.setAddress(address);
-
-        List<String> pictures = new CopyOnWriteArrayList<>();
-        if (request.getPictures().get("firstPic") != null)
-            pictures.add(request.getPictures().get("firstPic"));
-        if (request.getPictures().get("secondPic") != null)
-            pictures.add(request.getPictures().get("secondPic"));
-        if (request.getPictures().get("thirdPic") != null)
-            pictures.add(request.getPictures().get("thirdPic"));
-
+        List<String> pictures = extractPictures(request.getPictures());
         hotel.setPictures(pictures);
-        return hotelRepository.save(hotel);
+
+        getHotelOperation().put(hotelId+"",hotel);
+
+        return convertHotelsToHotelDto(hotelRepository.save(hotel));
     }
 
     private HotelDto convertHotelsToHotelDto(Hotel hotel) {
-
-        HotelDto dto = new HotelDto();
-        dto.setHotelId(hotel.getHotelId());
-        dto.setBossId(hotel.getBossId());
-        dto.setPictures(hotel.getPictures());
-        dto.setChName(hotel.getChName());
-        dto.setEnName(hotel.getEnName());
-        dto.setIntroduction(hotel.getIntroduction());
-        dto.setFacilities(hotel.getFacilities());
-        dto.setAddress(hotel.getAddress());
-        List<RoomDto> hotelRooms = roomInterface.findRoomsByHotelId(hotel.getHotelId()).getBody();
-        if (hotelRooms != null)
-            dto.setRooms(hotelRooms);
-        List<Comment> hotelComments = commentInterface.getHotelComments(hotel.getHotelId()).getBody();
-        if (hotelComments != null)
-            dto.setComments(hotelComments);
-        dto.setScore(hotel.getScore());
-        return dto;
+        return objectMapper.convertValue(hotel, HotelDto.class);
     }
 
     @Override
-    public HotelDto findHotelDtoByHotelId(Long hotelId) {
-        return convertHotelsToHotelDto(hotelRepository.findById(hotelId).orElseThrow(() -> new RuntimeException("查無此旅店")));
+    public HotelDto findHotelDtoByHotelId(Long hotelId) throws HotelNotFoundException {
+        Hotel hFromRedis = getHotelOperation().get(hotelId+"");
+        if(hFromRedis!=null) {
+            log.info("(findHotelDtoByHotelId)自redis取得");
+            return convertHotelsToHotelDto(hFromRedis);
+        }
+
+        Hotel hotel = hotelRepository.findById(hotelId).orElseThrow(()->new HotelNotFoundException(hotelId));
+
+        getHotelOperation().put(hotelId+"",hotel);
+        return convertHotelsToHotelDto(hotel);
     }
 
     @Override
-    public void updateHotelScore(Long hotelId, Double score) {
-        Hotel hotel = findHotelByHotelId(hotelId);
-        hotel.setScore(score);
+    public HotelDto updateHotelScore(Long hotelId, Double score) throws HotelNotFoundException {
+        HotelDto hotelDto = findHotelDtoByHotelId(hotelId);
+        hotelDto.setScore(score);
+        Hotel hotel = objectMapper.convertValue(hotelDto, Hotel.class);
         hotelRepository.save(hotel);
+        getHotelOperation().put(hotelId+"",hotel);
+        return hotelDto;
     }
 
     @Override
-    public Boolean validateBoss(Long userId, Long hotelId) {
-        Hotel hotel = findHotelByHotelId(hotelId);
+    public Boolean validateBoss(Long userId, Long hotelId) throws HotelNotFoundException {
+        HotelDto hotel = findHotelDtoByHotelId(hotelId);
 
         return Objects.equals(hotel.getBossId(), userId);
     }
 
     @Override
-    public List<Long> findHotelIdsByBossId(Long userId) {
-        return hotelRepository.findHotelIdsByBossId(userId);
+    public List<Long> findHotelIdsByBossId(Long bossId) {
+        return hotelRepository.findHotelIdsByBossId(bossId);
+    }
+
+    @Override
+    public String findHotelNameByHotelId(Long hotelId) throws HotelNotFoundException {
+        HotelDto hotel = findHotelDtoByHotelId(hotelId);
+        return hotel.getChName();
     }
 }

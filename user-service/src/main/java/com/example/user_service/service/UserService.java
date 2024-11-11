@@ -1,20 +1,23 @@
 package com.example.user_service.service;
 
+import com.example.user_service.exception.RequestEmptyException;
+import com.example.user_service.exception.UserNotFoundException;
 import com.example.user_service.model.Users;
 import com.example.user_service.model.dto.HotelDetailDto;
 import com.example.user_service.model.dto.SignUpRequest;
 import com.example.user_service.model.dto.UpdateProfileRequest;
+import com.example.user_service.model.dto.UserDto;
 
 import java.util.List;
 
 public interface UserService {
 
-	public Users adduser(SignUpRequest request,Long userId);
+	public UserDto adduser(SignUpRequest request,Long userId) throws RequestEmptyException;
 
-	public Users findUserByUserId(Long userId);
+	public UserDto findUserByUserId(Long userId) throws UserNotFoundException;
 
-	public void setUserToHotelerFromUserId(Long userId);
+	public UserDto setUserToHotelerFromUserId(Long userId);
 
-	public Users updateUserData(Long userId, UpdateProfileRequest request);
+	public UserDto updateUserData(Long userId, UpdateProfileRequest request) throws UserNotFoundException;
 
 }

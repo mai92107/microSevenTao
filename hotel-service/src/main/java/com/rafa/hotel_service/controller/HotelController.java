@@ -1,8 +1,7 @@
 package com.rafa.hotel_service.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rafa.hotel_service.feign.feign.AuthInterface;
-import com.rafa.hotel_service.model.Hotel;
+import com.rafa.hotel_service.feign.AuthInterface;
 import com.rafa.hotel_service.model.dto.HotelCardDto;
 import com.rafa.hotel_service.model.dto.HotelDetailDto;
 import com.rafa.hotel_service.model.dto.HotelEntity;
@@ -15,8 +14,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -36,27 +33,13 @@ public class HotelController {
 
     @GetMapping("/{hotelId}")
     public ResponseEntity<HotelDetailDto> findHotelByHotelId(@PathVariable Long hotelId) {
-
         try {
             HotelDetailDto hotel = hotelService.findHotelDtoByHotelId(hotelId);
-            System.out.println("搜尋這個hotel: " + hotel.getChName());
-
-//            if (start == null && end == null && people == null) {
-//                return new ResponseEntity<>(hotel, HttpStatus.OK);
-//            }
-//            HotelDetailDto detailHotel = hotelService.convertHotel(hotel);
-
-//            System.out.println("搜尋這間hotel許可的房間有幾間: " + detailHotel.getValidRooms().size());
-
-//            System.out.println("我查詢入住時間是：" + start + "離開時間是：" + end);
-
-
             return new ResponseEntity<>(hotel, HttpStatus.OK);
         } catch (Exception e) {
-            e.printStackTrace();
-            return new ResponseEntity<>(null, HttpStatus.NOT_FOUND);
+            log.error(e.getMessage());
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
         }
-
     }
 
     @GetMapping("/hotelAddress")
@@ -65,7 +48,7 @@ public class HotelController {
             Set<Integer> cities = hotelService.getHotelCity();
             return new ResponseEntity<>(cities, HttpStatus.OK);
         } catch (Exception e) {
-            return new ResponseEntity<>(null, HttpStatus.NOT_FOUND);
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
         }
     }
 
@@ -76,7 +59,7 @@ public class HotelController {
             hotelService.updateHotelLikeList(userId, hotelId);
             return new ResponseEntity<>("已修改喜歡狀態", HttpStatus.OK);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error(e.getMessage());
             return new ResponseEntity<>("錯誤，請重新嘗試", HttpStatus.BAD_REQUEST);
         }
     }
@@ -85,11 +68,11 @@ public class HotelController {
     public ResponseEntity<List<HotelCardDto>> getUserFavoriteHotels(@RequestHeader("Authorization") String jwt) {
         try {
             Long userId = objectMapper.convertValue(authInterface.findUserIdByJwt(jwt).getBody().getData(), Long.class);
-            log.info("使用者"+userId);
             List<HotelCardDto> favoriteHotels = hotelService.getFavoriteHotelsByUserId(userId);
             return new ResponseEntity<>(favoriteHotels, HttpStatus.OK);
         } catch (Exception e) {
-            return new ResponseEntity<>(null, HttpStatus.NOT_FOUND);
+            log.error(e.getMessage());
+            return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
         }
     }
 
@@ -97,31 +80,10 @@ public class HotelController {
     public ResponseEntity<Boolean> checkIsUserFavorite(@RequestHeader("Authorization") String jwt, @PathVariable Long hotelId) {
         try {
             Long userId = objectMapper.convertValue(authInterface.findUserIdByJwt(jwt).getBody().getData(), Long.class);
-            log.info("使用者"+userId);
-
             Boolean isFavorite = hotelService.checkIsFavorite(userId, hotelId);
             return new ResponseEntity<>(isFavorite, HttpStatus.OK);
         } catch (Exception e) {
-            return new ResponseEntity<>(null, HttpStatus.NOT_FOUND);
-        }
-    }
-
-    @GetMapping("/hotels")
-    public ResponseEntity<HotelEntity> getHotels() {
-        try {
-            System.out.println("我要搜尋全部hotel");
-            HotelEntity allHotelType = new HotelEntity();
-            List<HotelCardDto> filteredHotel = hotelService.findALLHotelsByDetail(null, null, null, null, null);
-            System.out.println("符合標準的hotel有幾間" + filteredHotel.size());
-            allHotelType.setBestHotels(hotelService.sortHotelsByScore(filteredHotel));
-            allHotelType.setHotHotels(hotelService.sortHotelsByOrders(filteredHotel));
-            allHotelType.setNewHotels(hotelService.sortHotelsByBuildDate(filteredHotel));
-            List<HotelCardDto> reversedList = new ArrayList<>(filteredHotel);
-            Collections.reverse(reversedList);
-            allHotelType.setHotels(reversedList);
-            return new ResponseEntity<>(allHotelType, HttpStatus.OK);
-        } catch (RuntimeException e) {
-            e.printStackTrace();
+            log.error(e.getMessage());
             return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
         }
     }
@@ -132,18 +94,13 @@ public class HotelController {
                                                             @RequestParam(value = "end", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate end,
                                                             @RequestParam(value = "people", required = false) Integer people,
                                                             @RequestParam(value = "keyword", required = false) String keyword) {
-        System.out.println("here!!!!");
 
-        List<HotelCardDto> filteredHotel = hotelService.findALLHotelsByDetail(cityCode, keyword, start, end, people);
-
-        HotelEntity allHotelType = new HotelEntity();
-        allHotelType.setBestHotels(hotelService.sortHotelsByScore(filteredHotel));
-        allHotelType.setHotHotels(hotelService.sortHotelsByOrders(filteredHotel));
-        allHotelType.setNewHotels(hotelService.sortHotelsByBuildDate(filteredHotel));
-        allHotelType.setHotels(filteredHotel);
-
-        return new ResponseEntity<>(allHotelType, HttpStatus.OK);
+        try {
+            HotelEntity allHotelType = hotelService.searchAllHotelsWithSortedMethods(cityCode,keyword,start,end,people);
+            return new ResponseEntity<>(allHotelType, HttpStatus.OK);
+        } catch (Exception e) {
+            log.error(e.getMessage());
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        }
     }
-
-
 }

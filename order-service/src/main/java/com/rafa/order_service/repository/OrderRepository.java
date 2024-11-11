@@ -15,8 +15,14 @@ public interface OrderRepository extends JpaRepository<Orders,Long> {
 
     public List<Orders> findByRoomId(Long roomId);
 
+
     @Transactional
     @Modifying
     @Query(value = "UPDATE orders SET order_status = 'FINISHED' WHERE order_status IN ('VALID','DISANNUL') AND check_out_date <= NOW()", nativeQuery = true)
-    public void updateExpiredOrders();
+    public void updateValidExpiredOrders();
+
+    @Transactional
+    @Modifying
+    @Query(value = "UPDATE orders SET order_status = 'CANCELED' WHERE order_status IN ('PENDING') AND check_out_date <= NOW()", nativeQuery = true)
+    public void updateInvalidExpiredOrders();
 }
