@@ -5,9 +5,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rafa.order_service.model.Orders;
 import com.rafa.order_service.model.SEX;
 import com.rafa.order_service.model.STATUS;
+import com.rafa.order_service.model.dto.CustomRabbitMessage;
 import com.rafa.order_service.model.dto.OrderDto;
 import com.rafa.order_service.model.dto.UserDto;
+import com.rafa.order_service.rabbitMessagePublisher.SyncOrderPublish;
 import com.rafa.order_service.repository.OrderRepository;
+import jakarta.transaction.Transactional;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
@@ -20,6 +25,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 @Service
+@Slf4j
 public class OrderServiceImp implements OrderService {
 
     @Autowired
@@ -28,11 +34,14 @@ public class OrderServiceImp implements OrderService {
     @Autowired
     ObjectMapper objectMapper;
 
+    @Autowired
+    SyncOrderPublish syncOrderPublish;
+
     @Override
     public boolean isRoomAvailable(Long roomId, LocalDate start, LocalDate end) {
         List<Orders> roomOrders = orderRepository.findByRoomId(roomId);
         return roomOrders.stream().filter(o -> o.getOrderStatus().equals(STATUS.VALID) || o.getOrderStatus().equals(STATUS.DISANNUL))
-                .noneMatch(o -> !o.getCheckInDate().isAfter(end) && !o.getCheckOutDate().isBefore(start));
+                .noneMatch(o -> o.getCheckInDate().isBefore(end) && o.getCheckOutDate().isAfter(start));
     }
 
 
@@ -71,6 +80,7 @@ public class OrderServiceImp implements OrderService {
 
     }
 
+    @Transactional
     @Override
     public boolean deleteInvalidOrderFromUser(Long userId, long orderId) {
         Optional<Orders> order = orderRepository.findById(orderId);
@@ -87,8 +97,15 @@ public class OrderServiceImp implements OrderService {
             System.out.println("訂單未完成，無法刪除");
             return false;
         }
-        existOrder.setUserId(null);
-        orderRepository.save(existOrder);
+        order.get().setUserId(null);
+        Orders newOrder = orderRepository.save(order.get());
+
+        try {
+            syncOrderPublish.sendMsg(new CustomRabbitMessage("userUpdateOrderRoute", "orderExchange", newOrder));
+        } catch (Exception e) {
+            log.error("(deleteRoomsByRoomIds) 發送 RabbitMQ 消息失敗: {}", e.getMessage());
+            return false;
+        }
         return true;
     }
 
@@ -102,11 +119,19 @@ public class OrderServiceImp implements OrderService {
         return (int) roomIds.stream().map(id -> orderRepository.findByRoomId(id)).mapToLong(List::size).sum();
     }
 
+    @Transactional
     @Override
     public Orders wantCancelOrder(Long orderId) {
         Orders order = orderRepository.findById(orderId).orElseThrow(() -> new RuntimeException("查無此訂單" + orderId));
         order.setOrderStatus(STATUS.DISANNUL);
-        return orderRepository.save(order);
+
+        Orders newOrder = orderRepository.save(order);
+        try {
+            syncOrderPublish.sendMsg(new CustomRabbitMessage("userUpdateOrderRoute", "orderExchange", newOrder));
+        } catch (Exception e) {
+            log.error("(wantCancelOrder) 發送 RabbitMQ 消息失敗: {}", e.getMessage());
+        }
+        return newOrder;
     }
 
     @Override
@@ -115,20 +140,25 @@ public class OrderServiceImp implements OrderService {
     }
 
     @Override
-    public Boolean updateOrderCommentStatus(Long userId, Long orderId, Boolean status) {
-        Orders orders = orderRepository.findById(orderId).orElseGet(null);
-        if (orders == null || !Objects.equals(orders.getUserId(), userId))
-            return false;
-        orders.setCommented(status);
-        orderRepository.save(orders);
-        return true;
+    public void updateOrderCommentStatus(Orders order, Boolean status) {
+        order.setCommented(status);
+        orderRepository.save(order);
     }
 
+
+    @Transactional
     @Override
     public Orders cancelOrder(Long orderId) {
         Orders order = orderRepository.findById(orderId).orElseThrow(() -> new RuntimeException("查無此訂單" + orderId));
         order.setOrderStatus(STATUS.CANCELED);
-        return orderRepository.save(order);
+        Orders newOrder = orderRepository.save(order);
+
+        try {
+            syncOrderPublish.sendMsg(new CustomRabbitMessage("userUpdateOrderRoute", "orderExchange", newOrder));
+        } catch (Exception e) {
+            log.error("(cancelOrder) 發送 RabbitMQ 消息失敗: {}", e.getMessage());
+        }
+        return newOrder;
     }
 
     @Override
@@ -155,6 +185,20 @@ public class OrderServiceImp implements OrderService {
         newOrder.setTotalPrice(roomPrice);
         newOrder.setRoomId(roomId);
         System.out.println("我的order後入住時間是：" + newOrder.getCheckInDate() + "離開時間是：" + newOrder.getCheckOutDate());
-        return orderRepository.save(newOrder);
+
+        Orders orders = orderRepository.save(newOrder);
+        try {
+            syncOrderPublish.sendMsg(new CustomRabbitMessage("createOrderRoute", "orderExchange", orders));
+        } catch (Exception e) {
+            log.error("(createOrder) 發送 RabbitMQ 消息失敗: {}", e.getMessage());
+        }
+        return orders;
     }
+
+    @RabbitListener(queues = "adminUpdateOrderQueue")
+    public void updateOrderStatus(Orders order) {
+        Orders newOrder = orderRepository.save(order);
+        log.info("(acceptOrder)訂單{}更新成功", newOrder.getId());
+    }
+
 }

@@ -10,9 +10,9 @@ public interface AuthInterface {
     //加入要映射的方法
 
     @GetMapping("/auth/validate")
-    public ResponseEntity<ApiResponse<Object>> validateJwt(@RequestHeader("Authorization") String jwt);
+    public ResponseEntity<ApiResponse<Boolean>> validateJwt(@RequestHeader("Authorization") String jwt);
 
     @GetMapping("/auth/findUser")
-    public ResponseEntity<ApiResponse<Object>> findUserIdByJwt(@RequestHeader("Authorization") String jwt);
+    public ResponseEntity<ApiResponse<Long>> findUserIdByJwt(@RequestHeader("Authorization") String jwt);
 
 }

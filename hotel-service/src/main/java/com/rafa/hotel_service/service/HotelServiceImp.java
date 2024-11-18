@@ -6,25 +6,27 @@ import com.rafa.hotel_service.exception.SearchDataErrorException;
 import com.rafa.hotel_service.feign.OrderInterface;
 import com.rafa.hotel_service.feign.RoomInterface;
 import com.rafa.hotel_service.model.Hotel;
+import com.rafa.hotel_service.model.dto.CheckRoomAvailableByOrder;
 import com.rafa.hotel_service.model.dto.HotelCardDto;
 import com.rafa.hotel_service.model.dto.HotelDetailDto;
 import com.rafa.hotel_service.model.dto.HotelEntity;
 import com.rafa.hotel_service.repository.HotelRepository;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.redis.core.BoundHashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.*;
-import java.util.function.Function;
-import java.util.function.ToDoubleFunction;
-import java.util.function.ToIntFunction;
 
+import java.util.*;
 @Service
 @Slf4j
 public class HotelServiceImp implements HotelService {
@@ -44,9 +46,20 @@ public class HotelServiceImp implements HotelService {
     @Autowired
     RedisTemplate<String, Hotel> redisTemplate;
 
+    @Autowired
+    CacheManager cacheManager;
+
+
+    private BoundHashOperations<String, String, Hotel> getHotelBound() {
+        BoundHashOperations<String, String, Hotel> hb = redisTemplate.boundHashOps("hotel");
+        hb.expire(Duration.ofDays(1));
+        return hb;
+    }
+
+
     @Transactional
     private Optional<Hotel> findHotelByHotelId(Long hotelId) {
-        Hotel hotel = (Hotel) redisTemplate.opsForHash().get("hotel", hotelId + "");
+        Hotel hotel = getHotelBound().get(hotelId + "");
         if (hotel != null) {
             log.info("(findHotelByHotelId)Redis中找到此hotel" + hotelId);
             return Optional.of(hotel);
@@ -56,7 +69,7 @@ public class HotelServiceImp implements HotelService {
         if (findHotel == null)
             return Optional.empty();
         log.info("(findHotelByHotelId)資料庫中找到hotel，開始寫入redis");
-        redisTemplate.opsForHash().put("hotel", hotelId + "", findHotel);
+        getHotelBound().put(hotelId + "", findHotel);
         return Optional.of(findHotel);
     }
 
@@ -65,6 +78,7 @@ public class HotelServiceImp implements HotelService {
 
         HotelCardDto hc = new HotelCardDto();
         hc.setScore(hotel.getScore());
+        hc.setBossId(hotel.getBossId());
         hc.setChName(hotel.getChName());
         hc.setEnName(hotel.getEnName());
         hc.setIntroduction(hotel.getIntroduction());
@@ -72,23 +86,29 @@ public class HotelServiceImp implements HotelService {
         if (!hotel.getPictures().isEmpty())
             hc.setPicture(hotel.getPictures().get(0));
         List<Long> validRoomIds =
-                roomInterface.findRoomIdsByHotelId(hotel.getHotelId()).getBody();
+                roomInterface.findRoomIdsByHotelId(hotel.getHotelId()).getBody().getData();
         log.info("(convertHotelToHotelCardDto)篩選前房間總數為" + validRoomIds.size());
 
         if (!validRoomIds.isEmpty() && people != null) {
-            validRoomIds = roomInterface.filterValidRoomBySize(validRoomIds, people).getBody();
+            validRoomIds = roomInterface.filterValidRoomBySize(validRoomIds, people).getBody().getData();
             log.info("(convertHotelToHotelCardDto)依人數篩選後房間總數為" + validRoomIds.size());
         }
         Integer minPrice = null;
-        if (!validRoomIds.isEmpty() && start != null && end != null) {
-            minPrice = roomInterface.getMinPricePerDay(validRoomIds, start, end).getBody();
+        if (validRoomIds.isEmpty())
+            return null;
+        if (start != null && end != null) {
+            validRoomIds = orderInterface.checkHotelAvailableRooms(new CheckRoomAvailableByOrder(validRoomIds, start, end)).getBody().getData();
+            log.info("(convertHotelToHotelCardDto)依時間篩選後房間總數為" + validRoomIds.size());
         }
         if (validRoomIds.isEmpty())
             return null;
-        log.info("(convertHotelToHotelCardDto)取旅店最小金額為：" + minPrice);
-        hc.setMinPrice(minPrice);
+        if(start!=null&&end!=null) {
+            minPrice = roomInterface.getMinPricePerDay(validRoomIds, start.toString(), end.toString()).getBody().getData();
+            log.info("(convertHotelToHotelCardDto)取旅店最小金額為：" + minPrice);
+            hc.setMinPrice(minPrice);
+        }
 
-        List<String> roomNames = roomInterface.findRoomNamesByRoomIds(validRoomIds).getBody();
+        List<String> roomNames = roomInterface.findRoomNamesByRoomIds(validRoomIds).getBody().getData();
 
         if (roomNames == null || roomNames.isEmpty()) {
             log.info("(convertHotelToHotelCardDto)查無房間符合");
@@ -130,10 +150,10 @@ public class HotelServiceImp implements HotelService {
             log.info("(findALLHotelsByDetail)自資料庫取到的資料" + hotels.size());
             Map<String, Hotel> hotelMap = new HashMap<>();
             hotels.forEach(h -> hotelMap.put(h.getHotelId() + "", h));
-            redisTemplate.opsForHash().putAll("hotel", hotelMap);
+            getHotelBound().putAll(hotelMap);
         }
-        hotels = hotels.stream().filter(h ->
-                !Objects.requireNonNull(roomInterface.findRoomIdsByHotelId(h.getHotelId()).getBody()).isEmpty()).toList();
+        hotels = hotels.parallelStream().filter(h ->
+                !Objects.requireNonNull(roomInterface.findRoomIdsByHotelId(h.getHotelId()).getBody()).getData().isEmpty()).toList();
         log.info("(findALLHotelsByDetail)搜尋符合的有幾間：" + hotels.size());
         return convertHotelsToHotelCardDtos(hotels, start, end, people);
     }
@@ -142,16 +162,15 @@ public class HotelServiceImp implements HotelService {
     public HotelDetailDto findHotelDtoByHotelId(Long hotelId) throws HotelNotFoundException {
         //hotel頁面(未經條件轉換)
         Hotel hotel = findHotelByHotelId(hotelId).orElse(null);
-        if (hotel==null)
+        if (hotel == null)
             throw new HotelNotFoundException(hotelId);
         return objectMapper.convertValue(hotel, HotelDetailDto.class);
     }
 
     private List<Hotel> getAllHotels() {
 
-        List<Hotel> hotels = redisTemplate.opsForHash()
-                .values("hotel").stream().map(o -> (Hotel) o).toList();
-        if (!hotels.isEmpty() && hotels.size() > 5) {
+        List<Hotel> hotels = getHotelBound().values();
+        if (hotels != null && !hotels.isEmpty() && hotels.size() > 5) {
             log.info("(getAllHotels)自redis取到的資料" + hotels.size());
             return hotels;
         }
@@ -159,7 +178,7 @@ public class HotelServiceImp implements HotelService {
         log.info("(getAllHotels)自資料庫取到的資料" + hotels.size());
         Map<String, Hotel> hotelMap = new HashMap<>();
         hotels.forEach(h -> hotelMap.put(h.getHotelId() + "", h));
-        redisTemplate.opsForHash().putAll("hotel", hotelMap);
+        getHotelBound().putAll(hotelMap);
         return hotels;
     }
 
@@ -167,19 +186,26 @@ public class HotelServiceImp implements HotelService {
     @Override
     public List<HotelCardDto> getFavoriteHotelsByUserId(Long userId) {
         //個人頁面我的最愛
-        List<Hotel> favoriteHotels = favoriteHotels(userId);
-        return convertHotelsToHotelCardDtos(favoriteHotels, null, null, null);
+        Set<String> favoriteHotels = favoriteHotels(userId);
+        List<Hotel> hotels = favoriteHotels.parallelStream().map(id -> findHotelByHotelId(Long.parseLong(id)).get()).toList();
+        return convertHotelsToHotelCardDtos(hotels, null, null, null);
     }
 
-    @Cacheable(value = "favorHotels", key = "#userId")
-    private List<Hotel> favoriteHotels(Long userId) {
-        return hotelRepository.findFavoriteHotelsByUserId(userId);
+    private Set<String> favoriteHotels(Long userId) {
+        Cache favorCache = cacheManager.getCache("favorHotel");
+        Cache.ValueWrapper wrapper = favorCache.get(userId + "");
+        if (wrapper != null && wrapper.get() != null) {
+            return (Set<String>) wrapper.get();
+        }
+        Set<String> favorHotel = hotelRepository.findFavoriteHotelIdsByUserId(userId);
+        cacheManager.getCache("favorHotel").put(userId, favorHotel);
+        return favorHotel;
     }
 
     @Override
     public Boolean checkIsFavorite(Long userId, Long hotelId) {
-        List<Hotel> favoriteHotels = favoriteHotels(userId);
-        return !favoriteHotels.stream().noneMatch(h -> Objects.equals(h.getHotelId(), hotelId));
+        Set<String> favoriteHotels = favoriteHotels(userId);
+        return favoriteHotels.stream().anyMatch(id -> Long.parseLong(id) == (hotelId));
     }
 
 
@@ -188,13 +214,15 @@ public class HotelServiceImp implements HotelService {
 
         List<HotelCardDto> filteredHotel = findALLHotelsByDetail(cityCode,
                 keyword, start, end, people);
+        HotelEntity allHotelType = new HotelEntity(new ArrayList<>(),new ArrayList<>(),new ArrayList<>(),new ArrayList<>());
+
+        if (filteredHotel.isEmpty())
+            return allHotelType;
         log.info("(searchAllHotelsWithSortedMethods)總共找到" + filteredHotel.size() + "間旅店，開始排序");
-        HotelEntity allHotelType = new HotelEntity();
         allHotelType.setHotels(filteredHotel);
         allHotelType.setBestHotels(sortHotelsByScore(filteredHotel));
         allHotelType.setHotHotels(sortHotelsByOrders(filteredHotel));
         allHotelType.setNewHotels(sortHotelsByBuildDate(filteredHotel));
-
 
         return allHotelType;
     }
@@ -202,110 +230,154 @@ public class HotelServiceImp implements HotelService {
 
     private Integer getHotelOrders(Long hotelId) {
         //計算首頁排序
-        List<Long> roomIds = roomInterface.findRoomIdsByHotelId(hotelId).getBody();
-        Integer hotelOrders = orderInterface.getHotelOrderCount(roomIds).getBody();
+        List<Long> roomIds = roomInterface.findRoomIdsByHotelId(hotelId).getBody().getData();
+        if (roomIds == null || roomIds.isEmpty())
+            return 0;
+        Integer hotelOrders = orderInterface.getHotelOrderCount(roomIds).getBody().getData();
         if (hotelOrders == null)
             return 0;
         return hotelOrders;
     }
 
-
-    private final ToDoubleFunction<Long> compareByScore = (h ->
-    {
-        try {
-            return findHotelByHotelId(h).orElseThrow(() -> new HotelNotFoundException(h)).getScore();
-        } catch (HotelNotFoundException e) {
-            log.error("(compareByScore)" + e.getMsg());
-            return 0;
-        }
+    private Comparator<Long> getCompareByScore() {
+        return Comparator.comparingDouble(h ->
+                {
+                    try {
+                        return findHotelByHotelId(h).orElseThrow(() -> new HotelNotFoundException(h)).getScore();
+                    } catch (HotelNotFoundException e) {
+                        log.error("(compareByScore)" + e.getMsg());
+                        return 0;
+                    }
+                }
+        );
     }
-    );
-    private final ToIntFunction<Long> compareByOrders = (this::getHotelOrders);
-    private final Function<Long, LocalDateTime> compareByBuildDate = (h ->
-    {
-        try {
-            return findHotelByHotelId(h).orElseThrow(() -> new HotelNotFoundException(h)).getBuildDate();
-        } catch (HotelNotFoundException e) {
-            log.error("(compareByBuildDate)" + e.getMsg());
-            return null;
-        }
-    }
-    );
 
+    private Comparator<Long> getCompareByOrders() {
+        return Comparator.comparingInt(this::getHotelOrders);
+    }
+
+    private Comparator<Long> getToCompareByBuildDate() {
+        return Comparator.comparing(h ->
+                {
+                    try {
+                        return findHotelByHotelId(h).orElseThrow(() -> new HotelNotFoundException(h))
+                                .getBuildDate();
+                    } catch (HotelNotFoundException e) {
+                        log.error("(compareByBuildDate)" + e.getMsg());
+                        return LocalDateTime.MIN;
+                    }
+                }
+        );
+    }
+
+    private Comparator<Long> multiCompareByScore() {
+        log.info("(multiCompareByScore)按分數排序");
+        return getCompareByScore().reversed()
+                .thenComparing(getCompareByOrders()).reversed()
+                .thenComparing(getToCompareByBuildDate()).reversed();
+    }
+
+    private Comparator<Long> multiCompareByOrder() {
+        return getCompareByOrders().reversed()
+                .thenComparing(getCompareByScore()).reversed()
+                .thenComparing(getToCompareByBuildDate()).reversed();
+    }
+
+    private Comparator<Long> multiCompareByBuildDate() {
+        return getToCompareByBuildDate().reversed()
+                .thenComparing(getCompareByScore()).reversed()
+                .thenComparing(getCompareByOrders()).reversed();
+    }
 
     private List<HotelCardDto> sortHotelsByScore(List<HotelCardDto> hotels) {
-
-        List<Long> hotelIds = hotels.stream()
-                .map(HotelCardDto::getHotelId)
-                .sorted(Comparator
-                        .comparingDouble(compareByScore).reversed()
-                        .thenComparingInt(compareByOrders).reversed()
-                        .thenComparing(compareByBuildDate).reversed())
-                .limit(9)
-                .toList();
+        log.info("(sortHotelsByScore)收到排序數量" + hotels.size());
+        List<Long> hotelIds = new ArrayList<>(hotels.parallelStream().mapToLong(HotelCardDto::getHotelId).boxed().toList());
+        log.info("(sortHotelsByScore)hotelId排序數量" + hotelIds.size());
+        hotelIds.sort(multiCompareByScore());
+        log.info("(sortHotelsByScore)hotelId排序後數量" + hotelIds.size());
         return findHotelCardDtoByIdFromList(hotels, hotelIds);
     }
-
 
     private List<HotelCardDto> sortHotelsByOrders(List<HotelCardDto> hotels) {
-
-        List<Long> hotelIds = hotels.stream()
-                .map(HotelCardDto::getHotelId)
-                .sorted(Comparator
-                        .comparingInt(compareByOrders).reversed()
-                        .thenComparingDouble(compareByScore).reversed()
-                        .thenComparing(compareByBuildDate).reversed())
-                .limit(9)
-                .toList();
-
+        log.info("(sortHotelsByOrders)收到排序數量" + hotels.size());
+        List<Long> hotelIds = new ArrayList<>(hotels.parallelStream().mapToLong(HotelCardDto::getHotelId).boxed().toList());
+        hotelIds.sort(multiCompareByOrder());
         return findHotelCardDtoByIdFromList(hotels, hotelIds);
-
     }
 
-
     private List<HotelCardDto> sortHotelsByBuildDate(List<HotelCardDto> hotels) {
-        List<Long> hotelIds = hotels.stream()
-                .map(HotelCardDto::getHotelId)
-                .sorted(Comparator
-                        .comparing(compareByBuildDate).reversed()
-                        .thenComparingDouble(compareByScore).reversed()
-                        .thenComparingInt(compareByOrders).reversed())
-                .limit(9)
-                .toList();
+        log.info("(sortHotelsByBuildDate)收到排序數量" + hotels.size());
+        List<Long> hotelIds = new ArrayList<>(hotels.parallelStream().mapToLong(HotelCardDto::getHotelId).boxed().toList());
+        hotelIds.sort(multiCompareByBuildDate());
         return findHotelCardDtoByIdFromList(hotels, hotelIds);
     }
 
     private List<HotelCardDto> findHotelCardDtoByIdFromList(List<HotelCardDto> hotels, List<Long> sortedIds) {
         //將id轉回hotelCard
         return sortedIds.stream().map(l ->
-                        hotels.stream().filter(h -> h.getHotelId().equals(l))
+                        hotels.parallelStream().filter(h -> h.getHotelId().equals(l))
                                 .findFirst().orElse(null))
                 .filter(Objects::nonNull)
                 .toList();
     }
 
-    @CachePut(value = "favorHotels", key = "#userId")
     @Override
     public Hotel updateHotelLikeList(Long userId, Long hotelId) throws HotelNotFoundException {
         Hotel hotel = findHotelByHotelId(hotelId).orElse(null);
         if (hotel == null)
             throw new HotelNotFoundException(hotelId);
         List<Long> likedUsers = hotelRepository.getHotelFans(hotelId);
-        if (likedUsers.contains(userId))
+        if (likedUsers.contains(userId)) {
             likedUsers.remove(userId);
-        else
+            cacheManager.getCache("favorHotel").evict(userId);
+        } else {
             likedUsers.add(userId);
+            cacheManager.getCache("favorHotel").evict(userId);
+        }
         hotel.setLikedByUsersIds(likedUsers);
         ;
         return hotelRepository.save(hotel);
     }
 
 
-    @Cacheable(value = "city")
+    @Cacheable(value = "cities", key = "'cities'")
     @Override
-    public Set<Integer> getHotelCity() {
-        return hotelRepository.findAllCityAddress();
+    public Set<String> getHotelCity() {
+        Set<String> allCities = hotelRepository.findAllCityAddress();
+        return allCities;
     }
 
+    @RabbitListener(queues = "createHotelQueue")
+    public void createHotel(Hotel hotel) {
+        Hotel newHotel = hotelRepository.save(hotel);
+        log.info("(createHotel)儲存旅店成功數量" + newHotel.getHotelId());
+    }
+
+    @RabbitListener(queues = "deleteHotelQueue")
+    public void deleteHotel(Long hotelId) {
+        hotelRepository.deleteById(hotelId);
+        log.info("(deleteHotel)刪除旅店成功" + hotelId);
+    }
+
+    @RabbitListener(queues = "updateHotelQueue")
+    public void updateHotel(Hotel hotel) {
+        hotelRepository.save(hotel);
+        log.info("(updateHotel)旅店更新成功" + hotel.getHotelId());
+    }
+
+    @RabbitListener(queues = "updateUserHotelScoreQueue")
+    public void updateHotelScore(String hotelScoreData) throws HotelNotFoundException {
+        log.info("(updateHotelScore)我收到更新旅店分數的資料是{}...",hotelScoreData);
+        //接到的資料為hotel:{hotelId},score:{score}
+        String[] dataArray = hotelScoreData.split(",");
+        long hotelId = Long.parseLong(dataArray[0].substring(6));
+        double score = Double.parseDouble(dataArray[1].substring(6));
+        log.info("(updateHotelScore)拆分成hotel是"+hotelId+"以及score是"+score);
+        Hotel hotel = hotelRepository.findById(hotelId).orElseThrow(()->new HotelNotFoundException(hotelId));
+        hotel.setScore(score);
+        Hotel newHotel = hotelRepository.save(hotel);
+        getHotelBound().put(hotelId+"",newHotel);
+        log.info("(updateHotelScore)旅店{}分數{}更新成功", hotelId, score);
+    }
 
 }

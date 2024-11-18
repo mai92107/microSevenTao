@@ -9,7 +9,6 @@ import lombok.Data;
 import java.io.Serializable;
 
 @Data
-@Entity
 public class CommentDto implements Serializable {
 
 	@Id

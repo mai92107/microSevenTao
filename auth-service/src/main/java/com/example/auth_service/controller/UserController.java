@@ -34,7 +34,7 @@ public class UserController {
     Environment environment;
 
     @GetMapping("/validate")
-    public ResponseEntity<ApiResponse<Object>> validateJwt(@RequestHeader("Authorization") String jwt) {
+    public ResponseEntity<ApiResponse<Boolean>> validateJwt(@RequestHeader("Authorization") String jwt) {
         if (jwt.isEmpty())
             return ResponseEntity.badRequest().body(ApiResponse.error(400, "查無此人"));
         boolean isSuccess = jwtProvider.validateJwt(jwt);
@@ -43,7 +43,7 @@ public class UserController {
     }
 
     @GetMapping("/findUser")
-    public ResponseEntity<ApiResponse<Object>> findUserIdByJwt(@RequestHeader("Authorization") String jwt) {
+    public ResponseEntity<ApiResponse<Long>> findUserIdByJwt(@RequestHeader("Authorization") String jwt) {
         if (jwt.isEmpty())
             return ResponseEntity.badRequest().body(ApiResponse.error(400, "查無此人"));
         if (!jwtProvider.validateJwt(jwt))
@@ -56,7 +56,7 @@ public class UserController {
 
 
     @PostMapping("/signIn")
-    public ResponseEntity<ApiResponse<Object>> signIn(@RequestBody SignInRequest request) {
+    public ResponseEntity<ApiResponse<LoginResponse>> signIn(@RequestBody SignInRequest request) {
         try {
             System.out.println("我要登入" + request.getUserName());
             LoginResponse res = authenticationService.verifyUser(request);
@@ -64,12 +64,14 @@ public class UserController {
             return ResponseEntity.ok(ApiResponse.success("成功登入", res));
         } catch (LoginErrorException e) {
             return ResponseEntity.ok(ApiResponse.error(400, e.getMessage()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.ok(ApiResponse.error(400, e.getMessage()));
         }
-
     }
 
     @PostMapping("/signUp")
-    public ResponseEntity<ApiResponse<Object>> signUp(@RequestBody SignUpRequest request) {
+    public ResponseEntity<ApiResponse<LoginResponse>> signUp(@RequestBody SignUpRequest request) {
         System.out.println(request);
         if (request == null)
             return ResponseEntity.ok().body(ApiResponse.error(400, "註冊資料不可空白"));
@@ -82,7 +84,7 @@ public class UserController {
     }
 
     @PutMapping("/member/account")
-    public ResponseEntity<ApiResponse<Object>> updateAccount(@RequestHeader("Authorization") String jwt, @RequestBody String account) {
+    public ResponseEntity<ApiResponse<String>> updateAccount(@RequestHeader("Authorization") String jwt, @RequestBody String account) {
 
         System.out.println("我是" + account);
         Long userId = jwtProvider.findUserIdByJwt(jwt);
@@ -96,7 +98,7 @@ public class UserController {
     }
 
     @PutMapping("/member/role")
-    public ResponseEntity<ApiResponse<Object>> updateRole(@RequestHeader("Authorization") String jwt, @RequestBody USER_ROLE role) {
+    public ResponseEntity<ApiResponse<String>> updateRole(@RequestHeader("Authorization") String jwt, @RequestBody USER_ROLE role) {
 
         Long userId = jwtProvider.findUserIdByJwt(jwt);
         System.out.println("我的userID" + userId);

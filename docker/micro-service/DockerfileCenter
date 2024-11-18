@@ -1,0 +1,9 @@
+FROM openjdk:21-jdk-slim
+
+WORKDIR /app
+
+COPY center-service.jar center-service.jar
+
+EXPOSE 8761
+
+ENTRYPOINT ["java", "-jar", "center-service.jar"]

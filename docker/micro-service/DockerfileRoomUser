@@ -1,0 +1,9 @@
+FROM openjdk:21-jdk-slim
+
+WORKDIR /app
+
+COPY room-user-service.jar room-user-service.jar
+
+EXPOSE 8085
+
+ENTRYPOINT ["java", "-jar", "room-user-service.jar"]

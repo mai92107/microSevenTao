@@ -1,0 +1,99 @@
+version: '3.8'
+services:
+  redis-master:
+    image: redis:latest
+    container_name: redis-master
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    networks:
+      - redis-network
+
+  redis-slave1:
+    image: redis:latest
+    container_name: redis-slave1
+    depends_on:
+      - redis-master
+    ports:
+      - "6380:6379"
+    command: ["redis-server", "--replicaof", "redis-master", "6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    networks:
+      - redis-network
+
+  redis-slave2:
+    image: redis:latest
+    container_name: redis-slave2
+    depends_on:
+      - redis-master
+    ports:
+      - "6381:6379"
+    command: ["redis-server", "--replicaof", "redis-master", "6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    networks:
+      - redis-network
+
+  sentinel1:
+    image: redis:latest
+    container_name: redis-sentinel1
+    depends_on:
+      - redis-master
+    command: ["redis-sentinel", "/etc/redis/sentinel.conf"]
+    networks:
+      - redis-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    ports:
+      - "26379:26379"
+    volumes:
+      - ./sentinel.conf:/etc/redis/sentinel.conf
+
+  sentinel2:
+    image: redis:latest
+    container_name: redis-sentinel2
+    depends_on:
+      - redis-master
+    command: ["redis-sentinel", "/etc/redis/sentinel.conf"]
+    networks:
+      - redis-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    ports:
+      - "26380:26379"
+    volumes:
+      - ./sentinel.conf:/etc/redis/sentinel.conf
+
+networks:
+  redis-network:
+    driver: bridge

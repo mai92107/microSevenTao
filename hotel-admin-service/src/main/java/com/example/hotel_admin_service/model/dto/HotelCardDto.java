@@ -9,6 +9,7 @@ import java.util.List;
 public class HotelCardDto implements Serializable {
 
     private Long hotelId;
+    private Long bossId;
     private String picture;
     private String chName;
     private String enName;

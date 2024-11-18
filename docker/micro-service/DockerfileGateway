@@ -1,0 +1,9 @@
+FROM openjdk:21-jdk-slim
+
+WORKDIR /app
+
+COPY gateway-service.jar gateway-service.jar
+
+EXPOSE 8060
+
+ENTRYPOINT ["java", "-jar", "gateway-service.jar"]

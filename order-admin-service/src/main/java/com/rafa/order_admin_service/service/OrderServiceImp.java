@@ -1,32 +1,37 @@
 package com.rafa.order_admin_service.service;
 
+import com.rafa.order_admin_service.model.CustomRabbitMessage;
 import com.rafa.order_admin_service.model.Orders;
 import com.rafa.order_admin_service.model.STATUS;
+import com.rafa.order_admin_service.rabbitMessagePublisher.SyncOrderPublish;
 import com.rafa.order_admin_service.repository.OrderRepository;
+import jakarta.transaction.Transactional;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.annotation.EnableRabbit;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 public class OrderServiceImp implements OrderService {
 
     @Autowired
     OrderRepository orderRepository;
+
+    @Autowired
+    SyncOrderPublish syncOrderPublish;
 
     @Override
     public List<Orders> findByRoomId(Long roomId) {
         return orderRepository.findByRoomId(roomId);
     }
 
-
     @Override
-    public List<Orders> getOrdersByRoomList(List<Long> roomIds) {
+    public List<Orders> getOrdersByRoomLists(List<Long> roomIds) {
         List<Orders> allOrders = new ArrayList<>();
         orderRepository.updateExpiredOrders();
         for (Long roomId : roomIds) {
@@ -51,19 +56,47 @@ public class OrderServiceImp implements OrderService {
         return allOrder;
     }
 
+    @Transactional
     @Override
     public Orders acceptOrder(Long orderId) {
         Orders order = orderRepository.findById(orderId).orElseThrow(() -> new RuntimeException("查無此訂單id" + orderId));
         System.out.println(STATUS.VALID);
         order.setOrderStatus(STATUS.VALID);
-        return orderRepository.save(order);
+        Orders newOrder = orderRepository.save(order);
+        try {
+            syncOrderPublish.sendMsg(new CustomRabbitMessage("adminUpdateOrderRoute", "orderExchange", newOrder));
+        } catch (Exception e) {
+            log.error("(acceptOrder) 發送 RabbitMQ 消息失敗: {}", e.getMessage());
+        }
+        return newOrder;
     }
 
+    @Transactional
     @Override
     public Orders acceptCancelOrder(Long orderId) {
         Orders order = orderRepository.findById(orderId).orElseThrow(() -> new RuntimeException("查無此訂單id" + orderId));
         System.out.println(STATUS.CANCELED);
         order.setOrderStatus(STATUS.CANCELED);
-        return orderRepository.save(order);
+        Orders newOrder = orderRepository.save(order);
+
+        try {
+            syncOrderPublish.sendMsg(new CustomRabbitMessage("adminUpdateOrderRoute", "orderExchange", newOrder));
+        } catch (Exception e) {
+            log.error("(acceptCancelOrder) 發送 RabbitMQ 消息失敗: {}", e.getMessage());
+        }
+        return newOrder;
+    }
+
+
+    @RabbitListener(queues = "userUpdateOrderQueue")
+    public void updateOrderStatus(Orders order) {
+        Orders newOrder = orderRepository.save(order);
+        log.info("(wantCancelOrder)訂單{}更新成功", newOrder.getId());
+    }
+
+    @RabbitListener(queues = "createOrderQueue")
+    public void createOrder(Orders order) {
+        Orders newOrder = orderRepository.save(order);
+        log.info("(createOrder)訂單{}新增成功", newOrder.getId());
     }
 }

@@ -10,7 +10,7 @@ import java.util.List;
 
 
 public interface RoomService {
-    public String createRooms(Long hotelId, List<CreateRoomRequest> requests);
+    public List<Room> createRooms(Long hotelId, List<CreateRoomRequest> requests);
 
     public boolean deleteRoomsByRoomIds(List<Long> roomIds);
 

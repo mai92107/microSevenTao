@@ -12,7 +12,6 @@ import java.time.LocalDate;
 public class Orders implements Serializable {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
     @Column(nullable = false)

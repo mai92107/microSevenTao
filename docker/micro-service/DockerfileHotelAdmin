@@ -1,0 +1,9 @@
+FROM openjdk:21-jdk-slim
+
+WORKDIR /app
+
+COPY hotel-admin-service.jar hotel-admin-service.jar
+
+EXPOSE 8088
+
+ENTRYPOINT ["java", "-jar", "hotel-admin-service.jar"]

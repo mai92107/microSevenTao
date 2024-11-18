@@ -3,6 +3,7 @@ package com.example.hotel_admin_service.repository;
 import com.example.hotel_admin_service.model.Hotel;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -18,4 +19,7 @@ public interface HotelRepository extends JpaRepository<Hotel, Long> {
     @Query("SELECT h.hotelId FROM Hotel h WHERE h.bossId = :userId")
     public List<Long> findHotelIdsByBossId(@Param("userId") Long userId);
 
+    @Modifying
+    @Query("UPDATE Hotel h SET h.score = :score WHERE h.hotelId = :hotelId")
+    public void updateHotelScore(@Param("hotelId") Long hotelId,@Param("score") Double score);
 }

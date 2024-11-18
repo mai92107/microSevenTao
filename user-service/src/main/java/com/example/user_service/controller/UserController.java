@@ -30,7 +30,7 @@ public class UserController {
     AuthInterface authInterface;
 
     @PostMapping("/signup")
-    public ResponseEntity<ApiResponse<Object>> userSignUp(@RequestBody SignUpRequest request) throws RequestEmptyException, SignupErrorException {
+    public ResponseEntity<ApiResponse<LoginResponse>> userSignUp(@RequestBody SignUpRequest request) throws RequestEmptyException, SignupErrorException {
 
         if (request.getEmail() == null || request.getPhoneNum() == null || request.getLastName() == null || request.getPassword() == null)
             return ResponseEntity.ok(ApiResponse.error(400, "必要資料(信箱、密碼、電話、姓氏)不可空白"));
@@ -47,10 +47,10 @@ public class UserController {
     }
 
     @PostMapping("/signin")
-    public ResponseEntity<ApiResponse<Object>> signIn(@RequestBody SignInRequest request) {
+    public ResponseEntity<ApiResponse<LoginResponse>> signIn(@RequestBody SignInRequest request) {
 
         System.out.println("準備登入" + request.getUserName());
-        ApiResponse<Object> res = authInterface.signIn(request).getBody();
+        ApiResponse<LoginResponse> res = authInterface.signIn(request).getBody();
         if (res != null && res.getData() != null) {
             System.out.println(ApiResponse.success("登入成功", res.getData()));
             return ResponseEntity.ok(ApiResponse.success("登入成功", res.getData()));
@@ -62,7 +62,7 @@ public class UserController {
     }
 
     @GetMapping("/member")
-    public ResponseEntity<ApiResponse<Object>> getUserProfile(@RequestHeader("Authorization") String jwt) throws InvalidTokenException, RequestEmptyException, UserNotFoundException {
+    public ResponseEntity<ApiResponse<UserDto>> getUserProfile(@RequestHeader("Authorization") String jwt) throws UserNotFoundException {
         Long userId = objectMapper.convertValue(authInterface.findUserIdByJwt(jwt).getBody().getData(), Long.class);
         System.out.println("開始查使用者");
         log.info("使用者Id: " + userId);
@@ -74,7 +74,7 @@ public class UserController {
     ;
 
     @PutMapping("/member")
-    public ResponseEntity<ApiResponse<Object>> updateUserData(@RequestHeader("Authorization") String jwt, @RequestBody UpdateProfileRequest request) throws InvalidTokenException, RequestEmptyException, SignupErrorException, UserNotFoundException {
+    public ResponseEntity<ApiResponse<UserDto>> updateUserData(@RequestHeader("Authorization") String jwt, @RequestBody UpdateProfileRequest request) throws InvalidTokenException, RequestEmptyException, SignupErrorException, UserNotFoundException {
         Long userId = objectMapper.convertValue(authInterface.findUserIdByJwt(jwt).getBody().getData(), Long.class);
         UserDto user = userService.findUserByUserId(userId);
         if (!request.getAccount().trim().isEmpty() && !request.getAccount().equals(user.getAccount())) {
@@ -89,9 +89,9 @@ public class UserController {
     }
 
     @PutMapping("/member/hoteler")
-    public ResponseEntity<ApiResponse<Object>> setUserToHoteler(@RequestHeader("Authorization") String jwt) throws InvalidTokenException, RequestEmptyException, UserNotFoundException {
+    public ResponseEntity<ApiResponse<String>> setUserToHoteler(@RequestHeader("Authorization") String jwt) throws InvalidTokenException, RequestEmptyException, UserNotFoundException {
 
-        Long userId = (Long) authInterface.findUserIdByJwt(jwt).getBody().getData();
+        Long userId = authInterface.findUserIdByJwt(jwt).getBody().getData();
         UserDto user = userService.findUserByUserId(userId);
         userService.setUserToHotelerFromUserId(user.getUserId());
         System.out.println(authInterface.updateRole(jwt, USER_ROLE.ROLE_HOTELER).getBody());

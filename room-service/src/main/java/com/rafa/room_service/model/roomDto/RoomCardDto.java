@@ -23,15 +23,15 @@ public class RoomCardDto {
 
     private List<String> specialties;
 
-    private int price;
+    private Integer price;
 
     private int roomSize;
 
     private int capacity;
 
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
+    @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate start;
 
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
+    @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate end;
 }

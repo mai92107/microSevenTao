@@ -17,7 +17,7 @@ public interface HotelService {
 
     public Hotel updateHotelLikeList(Long userId, Long hotelId) throws HotelNotFoundException;
 
-    public Set<Integer> getHotelCity();
+    public Set<String> getHotelCity();
 
     public List<HotelCardDto> getFavoriteHotelsByUserId(Long userId);
 

@@ -19,17 +19,17 @@ public interface AuthInterface {
     //加入要映射的方法
 
     @GetMapping("/auth/findUser")
-    public ResponseEntity<ApiResponse<Object>> findUserIdByJwt(@RequestHeader("Authorization") String jwt);
+    public ResponseEntity<ApiResponse<Long>> findUserIdByJwt(@RequestHeader("Authorization") String jwt);
 
     @PostMapping("/auth/signUp")
-    public ResponseEntity<ApiResponse<Object>> signUp(@RequestBody SignUpRequest request);
+    public ResponseEntity<ApiResponse<LoginResponse>> signUp(@RequestBody SignUpRequest request);
 
     @PostMapping("/auth/signIn")
-    public ResponseEntity<ApiResponse<Object>> signIn(@RequestBody SignInRequest request);
+    public ResponseEntity<ApiResponse<LoginResponse>> signIn(@RequestBody SignInRequest request);
 
     @PutMapping("/auth/member/account")
-    public ResponseEntity<ApiResponse<Object>> updateAccount(@RequestHeader("Authorization") String jwt, @RequestBody String account);
+    public ResponseEntity<ApiResponse<String>> updateAccount(@RequestHeader("Authorization") String jwt, @RequestBody String account);
 
     @PutMapping("/auth/member/role")
-    public ResponseEntity<ApiResponse<Object>> updateRole(@RequestHeader("Authorization") String jwt, @RequestBody USER_ROLE role);
+    public ResponseEntity<ApiResponse<String>> updateRole(@RequestHeader("Authorization") String jwt, @RequestBody USER_ROLE role);
 }

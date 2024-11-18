@@ -12,6 +12,6 @@ import org.springframework.web.bind.annotation.RequestHeader;
 public interface UserInterface {
     //加入要映射的方法
     @GetMapping("/member")
-    public ResponseEntity<ApiResponse<Object>> getUserProfile(@RequestHeader("Authorization") String jwt);
+    public ResponseEntity<ApiResponse<UserDto>> getUserProfile(@RequestHeader("Authorization") String jwt);
 
 }

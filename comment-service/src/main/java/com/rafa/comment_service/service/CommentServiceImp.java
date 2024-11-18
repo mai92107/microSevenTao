@@ -60,7 +60,7 @@ public class CommentServiceImp implements CommentService {
         List<CommentDto> hotelComments = comments.stream().map(comment -> {
             CommentDto hotelComment = objectMapper.convertValue(comment, CommentDto.class);
             if(comment.getOrderId()!=null) {
-                OrderDto order = orderInterface.getOrderData(comment.getOrderId()).getBody();
+                OrderDto order = orderInterface.getOrderData(comment.getOrderId()).getBody().getData();
                 hotelComment.setRoomType(order.getRoomName());
                 hotelComment.setLivingTime(order.getCheckInDate() + " ~ " + order.getCheckOutDate());
             }

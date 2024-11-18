@@ -34,5 +34,5 @@ public interface OrderService {
 
     public Orders findOrderByOrderId(Long orderId);
 
-    public Boolean updateOrderCommentStatus(Long userId, Long orderId, Boolean status);
+    public void updateOrderCommentStatus(Orders order, Boolean status);
 }

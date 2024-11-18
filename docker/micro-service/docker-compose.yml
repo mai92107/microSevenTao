@@ -1,0 +1,395 @@
+services:
+
+  center-service:
+    container_name: center-service
+    build:
+      context: .
+      dockerfile: DockerfileCenter
+    ports:
+      - "8761:8761"
+    networks:
+      - micro-network
+
+  gateway-service:
+    container_name: gateway-service
+    build:
+      context: .
+      dockerfile: DockerfileGateway
+    ports:
+      - "8060:8060"
+    networks:
+      - micro-network
+
+  hotel-user-service:
+    container_name: hotel-user-service
+    build:
+      context: .
+      dockerfile: DockerfileHotelUser
+    environment:
+      - REDIS_SENTINELS=sentinel1:26379,sentinel2:26380
+      - SPRING_DATASOURCE_URL=jdbc:mysql://hotel-user-mysql:3306/hotelData
+    ports:
+      - "8087:8087"
+    networks:
+      - micro-network
+    depends_on:
+      - hotel-user-mysql
+      - zipkin-service
+      - center-service
+      - gateway-service
+      - redis-master
+      - rabbitmq-service
+
+  room-user-service:
+    container_name: room-user-service
+    build:
+      context: .
+      dockerfile: DockerfileRoomUser
+    environment:
+      - REDIS_SENTINELS=sentinel1:26379,sentinel2:26380
+      - SPRING_DATASOURCE_URL=jdbc:mysql://room-user-mysql:3306/roomData
+    ports:
+      - "8092:8085"
+    networks:
+      - micro-network
+    depends_on:
+      - room-user-mysql
+      - zipkin-service
+      - center-service
+      - gateway-service
+      - redis-master
+      - rabbitmq-service
+
+  order-user-service:
+    container_name: order-user-service
+    build:
+      context: .
+      dockerfile: DockerfileOrderUser
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://order-user-mysql:3306/orderData
+    ports:
+      - "8082:8082"
+    networks:
+      - micro-network
+    depends_on:
+      - order-user-mysql
+      - zipkin-service
+      - center-service
+      - gateway-service
+
+  hotel-admin-service:
+    container_name: hotel-admin-service
+    build:
+      context: .
+      dockerfile: DockerfileHotelAdmin
+    environment:
+      - REDIS_SENTINELS=sentinel1:26379,sentinel2:26380
+      - SPRING_DATASOURCE_URL=jdbc:mysql://hotel-admin-mysql:3306/hotelData
+    ports:
+      - "8088:8088"
+    networks:
+      - micro-network
+    depends_on:
+      - hotel-admin-mysql
+      - zipkin-service
+      - center-service
+      - gateway-service
+      - redis-master
+      - rabbitmq-service
+
+  room-admin-service:
+    container_name: room-admin-service
+    build:
+      context: .
+      dockerfile: DockerfileRoomAdmin
+    environment:
+      - REDIS_SENTINELS=sentinel1:26379,sentinel2:26380
+      - SPRING_DATASOURCE_URL=jdbc:mysql://room-admin-mysql:3306/roomData
+    ports:
+      - "8086:8086"
+    networks:
+      - micro-network
+    depends_on:
+      - room-admin-mysql
+      - zipkin-service
+      - center-service
+      - gateway-service
+      - redis-master
+      - rabbitmq-service
+
+  order-admin-service:
+    container_name: order-admin-service
+    build:
+      context: .
+      dockerfile: DockerfileOrderAdmin
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://order-admin-mysql:3306/orderData
+    ports:
+      - "8083:8083"
+    networks:
+      - micro-network
+    depends_on:
+      - order-admin-mysql
+      - zipkin-service
+      - center-service
+      - gateway-service
+
+  user-service:
+    container_name: user-service
+    build:
+      context: .
+      dockerfile: DockerfileUser
+    environment:
+      - REDIS_SENTINELS=sentinel1:26379,sentinel2:26380
+      - SPRING_DATASOURCE_URL=jdbc:mysql://user-mysql:3306/userData
+    ports:
+      - "8089:8089"
+    networks:
+      - micro-network
+    depends_on:
+      - user-mysql
+      - zipkin-service
+      - center-service
+      - gateway-service
+      - redis-master
+
+  comment-service:
+    container_name: comment-service
+    build:
+      context: .
+      dockerfile: DockerfileComment
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://comment-mysql:3306/commentData
+    ports:
+      - "8084:8084"
+    networks:
+      - micro-network
+    depends_on:
+      - comment-mysql
+      - zipkin-service
+      - center-service
+      - gateway-service
+
+  auth-service:
+    container_name: auth-service
+    build:
+      context: .
+      dockerfile: DockerfileAuth
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://auth-mysql:3306/authData
+    ports:
+      - "8090:8090"
+    networks:
+      - micro-network
+    depends_on:
+      - auth-mysql
+      - zipkin-service
+      - center-service
+      - gateway-service
+
+    
+  hotel-user-mysql:
+    container_name: hotel-user-mysql
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: guan7872
+      MYSQL_DATABASE: hotelData
+    volumes:
+      - hotel-user-mysql-data:/var/lib/mysql
+    networks:
+      - micro-network
+    ports:
+      - "3307:3306"
+
+  hotel-admin-mysql:
+    container_name: hotel-admin-mysql
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: guan7872
+      MYSQL_DATABASE: hotelData
+    volumes:
+      - hotel-admin-mysql-data:/var/lib/mysql
+    networks:
+      - micro-network
+    ports:
+      - "3317:3306"
+
+  room-user-mysql:
+    container_name: room-user-mysql
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: guan7872
+      MYSQL_DATABASE: roomData
+    volumes:
+      - room-user-mysql-data:/var/lib/mysql
+    networks:
+      - micro-network
+    ports:
+      - "3308:3306"
+  
+  room-admin-mysql:
+    container_name: room-admin-mysql
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: guan7872
+      MYSQL_DATABASE: roomData
+    volumes:
+      - room-admin-mysql-data:/var/lib/mysql
+    networks:
+      - micro-network
+    ports:
+      - "3318:3306" 
+
+  order-user-mysql:
+    container_name: order-user-mysql
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: guan7872
+      MYSQL_DATABASE: orderData
+    volumes:
+      - order-user-mysql-data:/var/lib/mysql
+    networks:
+      - micro-network
+    ports:
+      - "3309:3306"
+
+  order-admin-mysql:
+    container_name: order-admin-mysql
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: guan7872
+      MYSQL_DATABASE: orderData
+    volumes:
+      - order-admin-mysql-data:/var/lib/mysql
+    networks:
+      - micro-network
+    ports:
+      - "3319:3306"
+
+  comment-mysql:
+    container_name: comment-mysql
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: guan7872
+      MYSQL_DATABASE: commentData
+    volumes:
+      - comment-mysql-data:/var/lib/mysql
+    networks:
+      - micro-network
+    ports:
+      - "3310:3306"
+
+  user-mysql:
+    container_name: user-mysql
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: guan7872
+      MYSQL_DATABASE: userData
+    volumes:
+      - user-mysql-data:/var/lib/mysql
+    networks:
+      - micro-network
+    ports:
+      - "3301:3306"
+
+  auth-mysql:
+    container_name: auth-mysql
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: guan7872
+      MYSQL_DATABASE: authData
+    volumes:
+      - auth-mysql-data:/var/lib/mysql
+    networks:
+      - micro-network
+    ports:
+      - "3311:3306"
+
+  redis-master:
+    image: redis:latest
+    container_name: master
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    networks:
+      - micro-network
+
+  redis-slave1:
+    image: redis:latest
+    container_name: slave1
+    depends_on:
+      - redis-master
+    command: ["redis-server", "--replicaof", "master", "6379"]
+    networks:
+      - micro-network
+
+  redis-slave2:
+    image: redis:latest
+    container_name: slave2
+    depends_on:
+      - redis-master
+    command: ["redis-server", "--replicaof", "master", "6379"]
+    networks:
+      - micro-network
+
+  sentinel1:
+    image: redis:latest
+    container_name: sentinel1
+    depends_on:
+      - redis-master
+    command: ["redis-sentinel", "/etc/redis/sentinel.conf"]
+    networks:
+      - micro-network
+    ports:
+      - "26379:26379"
+    volumes:
+      - ./sentinel.conf:/etc/redis/sentinel.conf
+
+  sentinel2:
+    image: redis:latest
+    container_name: sentinel2
+    depends_on:
+      - redis-master
+    command: ["redis-sentinel", "/etc/redis/sentinel.conf"]
+    networks:
+      - micro-network
+    ports:
+      - "26380:26379"
+    volumes:
+      - ./sentinel.conf:/etc/redis/sentinel.conf
+
+  rabbitmq-service:
+    container_name: rabbitmq
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - micro-network
+
+
+  zipkin-service:
+    container_name: zipkin-service
+    image: openzipkin/zipkin
+    ports:
+      - "9411:9411"
+    networks:
+      - micro-network
+
+volumes:
+  hotel-user-mysql-data:
+  hotel-admin-mysql-data:
+  room-user-mysql-data:
+  room-admin-mysql-data:
+  order-user-mysql-data:
+  order-admin-mysql-data:
+  comment-mysql-data:
+  user-mysql-data:
+  auth-mysql-data:
+
+
+
+networks:
+  micro-network:
+    external: true
+

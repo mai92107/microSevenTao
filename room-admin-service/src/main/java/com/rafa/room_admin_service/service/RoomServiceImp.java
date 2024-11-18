@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rafa.room_admin_service.exception.RoomNotFoundException;
 import com.rafa.room_admin_service.model.CreateRoomRequest;
 import com.rafa.room_admin_service.model.Room;
+import com.rafa.room_admin_service.model.dto.CustomRabbitMessage;
 import com.rafa.room_admin_service.model.dto.RoomDto;
+import com.rafa.room_admin_service.rabbitMessagePublisher.SyncRoomPublish;
 import com.rafa.room_admin_service.repository.RoomRepository;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
@@ -35,22 +37,22 @@ public class RoomServiceImp implements RoomService {
     @Autowired
     RedisTemplate<String, Room> redisTemplate;
 
+    @Autowired
+    SyncRoomPublish syncRoomPublish;
+
 
     private String generateRoomKey(Long hotelId, Long roomId) {
         String hotel = hotelId == null ? "*" : hotelId.toString();
         String room = roomId == null ? "*" : roomId.toString();
-        String hotelPart = "hotel:";
-        String roomPart = "room:";
-
-        hotelPart += hotel;
-        roomPart += room;
+        String hotelPart = "hotel:" + hotel;
+        String roomPart = "room:" + room;
 
         return hotelPart + "," + roomPart;
     }
 
     @Transactional
     @Override
-    public String createRooms(Long hotelId, List<CreateRoomRequest> requests) {
+    public List<Room> createRooms(Long hotelId, List<CreateRoomRequest> requests) {
         List<Room> rooms = new ArrayList<>();
         for (CreateRoomRequest request : requests) {
             Room room = new Room();
@@ -64,16 +66,24 @@ public class RoomServiceImp implements RoomService {
             rooms.add(room);
         }
         List<Room> newRooms = roomRepository.saveAllAndFlush(rooms);
+
         Map<String, Room> roomMap =
                 newRooms.stream().collect(Collectors.toMap(
                         r -> generateRoomKey(r.getHotelId(), r.getRoomId()),
                         r -> r));
         redisTemplate.opsForValue().multiSet(roomMap);
         log.info("(createRooms)儲存房間成功數量" + roomMap.size());
-        return "儲存成功";
+
+        try {
+            syncRoomPublish.sendMsg(new CustomRabbitMessage("createRoomRoute", "roomExchange", newRooms));
+        } catch (Exception e) {
+            log.error("(createRooms) 發送 RabbitMQ 消息失敗: {}", e.getMessage());
+        }
+        return newRooms;
     }
 
 
+    @Transactional
     @Override
     public boolean deleteRoomsByRoomIds(List<Long> roomIds) {
         try {
@@ -81,12 +91,20 @@ public class RoomServiceImp implements RoomService {
             Long hotelId = findHotelIdByRoomId(roomIds.get(0));
             roomRepository.deleteAllByIdInBatch(roomIds);
             Set<String> keys = redisTemplate.keys(generateRoomKey(hotelId, null));
-            log.info("(deleteRoomsByRoomIds)在redis中搜尋的key是" + generateRoomKey(hotelId, null));
-            log.info("(deleteRoomsByRoomIds)redis中hotel旅店有幾間" + keys.size());
-            keys = keys.stream().filter(key ->
-                            roomIds.stream().anyMatch(id ->
-                                    key.equals((generateRoomKey(null, id)))))
-                    .collect(Collectors.toSet());
+            log.info("(deleteRoomsByRoomIds)redis中hotel旅店有幾間房間" + keys.size());
+            for (Long roomId : roomIds) {
+                boolean redisDeleted = Boolean.TRUE.equals(redisTemplate.delete(generateRoomKey(hotelId, roomId)));
+                if (!redisDeleted) {
+                    log.error("(deleteRoomsByRoomIds) Redis 中刪除 roomId {} 失敗", roomId);
+                    return false; // 若 Redis 刪除失敗則返回 false
+                }
+            }
+            try {
+                syncRoomPublish.sendMsg(new CustomRabbitMessage("deleteRoomRoute", "roomExchange", roomIds));
+            } catch (Exception e) {
+                log.error("(deleteRoomsByRoomIds) 發送 RabbitMQ 消息失敗: {}", e.getMessage());
+                return false;
+            }
         } catch (Exception e) {
             log.error("(deleteRoomsByRoomIds)" + e.getMessage());
             return false;
@@ -115,8 +133,7 @@ public class RoomServiceImp implements RoomService {
         }
         log.info("(getRoomIdsByHotelId)自資料庫取room資料");
         List<Long> roomIds = roomRepository.findRoomIdsByHotelId(hotelId);
-        if (roomIds.isEmpty())
-            throw new RoomNotFoundException(hotelId, null);
+
         return roomIds;
     }
 
@@ -132,7 +149,14 @@ public class RoomServiceImp implements RoomService {
         log.info("(findRoomByHotelId)自資料庫取room資料");
         List<Room> rooms = roomRepository.findByHotelId(hotelId);
         if (rooms.isEmpty())
-            throw new RoomNotFoundException(hotelId, null);
+            return null;
+        redisTemplate.opsForValue().multiSet(
+                rooms.stream()
+                        .collect(Collectors.toMap(
+                                r -> generateRoomKey(r.getHotelId(), r.getRoomId()),
+                                r -> r
+                        ))
+        );
 
         return rooms.stream().map(r ->
                 objectMapper.convertValue(r, RoomDto.class)
@@ -150,10 +174,8 @@ public class RoomServiceImp implements RoomService {
                             .toList());
         }
         log.info("(findRoomNamesByHotelId)自資料庫取room資料");
-        List<String> roomNames =  roomRepository.findRoomNameByHotelId(hotelId);
+        List<String> roomNames = roomRepository.findRoomNameByHotelId(hotelId);
 
-        if (roomNames.isEmpty())
-            throw new RoomNotFoundException(hotelId, null);
 
         return roomNames;
     }

@@ -11,6 +11,6 @@ import org.springframework.web.bind.annotation.RequestHeader;
 public interface AuthInterface {
     //加入要映射的方法
     @GetMapping("/auth/findUser")
-    public ResponseEntity<ApiResponse<Object>> findUserIdByJwt(@RequestHeader("Authorization") String jwt);
+    public ResponseEntity<ApiResponse<Long>> findUserIdByJwt(@RequestHeader("Authorization") String jwt);
 
 }

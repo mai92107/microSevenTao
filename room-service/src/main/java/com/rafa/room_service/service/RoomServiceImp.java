@@ -8,8 +8,11 @@ import com.rafa.room_service.model.Room;
 import com.rafa.room_service.model.roomDto.RoomCardDto;
 import com.rafa.room_service.model.roomDto.RoomDto;
 import com.rafa.room_service.repository.RoomRepository;
+import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -31,20 +34,23 @@ public class RoomServiceImp implements RoomService {
     @Autowired
     RedisTemplate<String, Room> redisTemplate;
 
+    @Autowired
+    Environment environment;
+
     private List<RoomDto> getRoomByRoomIdOrByHotelIdFromRedis(Long hotelId, Long roomId) {
         if (hotelId != null && roomId == null) {
             Set<String> roomsKeySet = redisTemplate.keys("hotel:" + hotelId + ",room:*");
             List<RoomDto> hotelRooms = new ArrayList<>();
             if (roomsKeySet == null || roomsKeySet.isEmpty()) {
-                log.info("(getRoomByRoomIdOrByHotelIdFromRedis)未在redis中找到，返回空");
+                log.info("(getRoomByRoomIdOrByHotelIdFromRedis)未在redis中找到，返回空陣列");
                 return hotelRooms;
             }
-            log.info("(getRoomByRoomIdOrByHotelIdFromRedis)自redis取得hotel的room資料");
+            log.info("(getRoomByRoomIdOrByHotelIdFromRedis)用hotelId找房間，自redis取得hotel的room資料");
             for (String roomKey : roomsKeySet) {
                 hotelRooms.add(objectMapper.convertValue(redisTemplate.opsForValue().get(roomKey), RoomDto.class));
             }
             ;
-            log.info("(getRoomByRoomIdOrByHotelIdFromRedis)自redis獲得房間幾間" + hotelRooms.size());
+            log.info("(getRoomByRoomIdOrByHotelIdFromRedis)用hotelId找房間，自redis獲得房間幾間" + hotelRooms.size());
             return hotelRooms;
         }
 
@@ -52,15 +58,15 @@ public class RoomServiceImp implements RoomService {
             Set<String> roomKeySet = redisTemplate.keys("hotel:*,room:" + roomId);
             List<RoomDto> room = new ArrayList<>();
             if (roomKeySet == null || roomKeySet.isEmpty()) {
-                log.info("(getRoomByRoomIdOrByHotelIdFromRedis)未在redis中找到，返回空");
+                log.info("(getRoomByRoomIdOrByHotelIdFromRedis)用roomId找房間，未在redis中找到，返回空陣列");
                 return room;
             }
-            log.info("(getRoomByRoomIdOrByHotelIdFromRedis)自redis取得hotel的room資料");
+            log.info("(getRoomByRoomIdOrByHotelIdFromRedis)用roomId找房間，自redis取得hotel的room資料");
             for (String roomKey : roomKeySet) {
                 room.add(objectMapper.convertValue(redisTemplate.opsForValue().get(roomKey), RoomDto.class));
             }
             ;
-            log.info("(getRoomByRoomIdOrByHotelIdFromRedis)自redis獲得房間幾間" + room.size());
+            log.info("(getRoomByRoomIdOrByHotelIdFromRedis)用roomId找房間，自redis獲得房間幾間" + room.size());
             return room;
         }
         return null;
@@ -106,7 +112,7 @@ public class RoomServiceImp implements RoomService {
         if (room.isEmpty())
             throw new RoomNotFoundException(roomId);
         if (dates == null) {
-            log.error("(countPriceByLivingDate)ERROR 無查詢房間或日期" + roomId + dates.size());
+            log.error("(countPriceByLivingDate)ERROR 無查詢房間或日期" + roomId);
             throw new LivingDateErrorException(dates);
         }
         log.info("(countPriceByLivingDate)計算價格的房間名為 " + room.get().getRoomName());
@@ -182,11 +188,12 @@ public class RoomServiceImp implements RoomService {
 
 
     private RoomCardDto convertRoomToRoomCard(Long roomId, LocalDate start, LocalDate end) throws RoomException {
-        int totalPrice = 0;
+        Integer totalPrice = null;
         Optional<RoomDto> room = findRoomById(roomId);
         if (room.isEmpty())
             throw new RoomNotFoundException(roomId);
-        totalPrice = countPriceByLivingDate(room.get().getRoomId(), countLivingDayList(start, end));
+        if (start != null && end != null)
+            totalPrice = countPriceByLivingDate(room.get().getRoomId(), countLivingDayList(start, end));
 
         return new RoomCardDto(
                 room.get().getRoomId(),
@@ -203,6 +210,7 @@ public class RoomServiceImp implements RoomService {
 
     @Override
     public List<Long> findRoomIdsByHotelId(Long hotelId) {
+        System.out.println("目前使用這個port : " + environment.getProperty("server.port"));
         List<RoomDto> hotelRooms = findRoomByHotelId(hotelId);
         return hotelRooms.parallelStream().map(RoomDto::getRoomId).toList();
     }
@@ -242,8 +250,10 @@ public class RoomServiceImp implements RoomService {
     @Override
     public Long findHotelIdByRoomId(Long roomId) {
         List<RoomDto> room = getRoomByRoomIdOrByHotelIdFromRedis(null, roomId);
-        if (room.isEmpty())
-            roomRepository.findHotelIdByRoomId(roomId);
+        if (room.isEmpty()) {
+            log.info("(findHotelIdByRoomId)從資料庫尋找roomId:{}的hotelId", roomId);
+            return roomRepository.findHotelIdByRoomId(roomId);
+        }
         return room.get(0).getHotelId();
     }
 
@@ -288,6 +298,20 @@ public class RoomServiceImp implements RoomService {
             log.error("(getMinPricePerDay) 其他錯誤：" + e.getMessage(), e);
             return Optional.empty();
         }
+    }
+
+    @RabbitListener(queues = "createRoomQueue")
+    public void createRooms(List<Room> rooms) {
+
+        List<Room> newRooms = roomRepository.saveAllAndFlush(rooms);
+        log.info("(createRooms)儲存房間成功數量" + newRooms.size());
+
+    }
+
+    @RabbitListener(queues = "deleteRoomQueue")
+    public void deleteRooms(List<Long> roomIds) {
+        roomRepository.deleteAllById(roomIds);
+        log.info("(deleteRooms)刪除房間成功數量" + roomIds.size());
     }
 
 

@@ -10,6 +10,7 @@ import java.util.List;
 public class HotelCardDto implements Serializable {
     //首頁卡片用
     private Long hotelId;
+    private Long bossId;
     private String picture;
     private String chName;
     private String enName;

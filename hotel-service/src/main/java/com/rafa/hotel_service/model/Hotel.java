@@ -34,7 +34,7 @@ public class Hotel implements Serializable {
 	@ElementCollection(fetch = FetchType.EAGER)
 	private List<String> facilities;
 
-	@OneToOne(cascade = CascadeType.PERSIST)
+	@OneToOne(cascade = CascadeType.ALL)
 	private Address address;
 
 	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")

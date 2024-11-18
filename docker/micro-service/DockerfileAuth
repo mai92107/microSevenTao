@@ -1,0 +1,9 @@
+FROM openjdk:21-jdk-slim
+
+WORKDIR /app
+
+COPY auth-service.jar auth-service.jar
+
+EXPOSE 8090
+
+ENTRYPOINT ["java", "-jar", "auth-service.jar"]

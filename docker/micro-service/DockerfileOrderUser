@@ -1,0 +1,9 @@
+FROM openjdk:21-jdk-slim
+
+WORKDIR /app
+
+COPY order-user-service.jar order-user-service.jar
+
+EXPOSE 8083
+
+ENTRYPOINT ["java", "-jar", "order-user-service.jar"]

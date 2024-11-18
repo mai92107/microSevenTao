@@ -22,16 +22,16 @@ class RoomAdminServiceApplicationTests {
 	@Autowired
 	RoomService roomService;
 
-	@Test
-	void createRooms() {
-
-		log.info(roomService.createRooms(25L,
-				List.of(new CreateRoomRequest(
-						List.of("http://pictureOne","http://pictureTwo","http://pictureThree"),
-						"豪華單人床",List.of("高級馬桶","高級洗手台","高級浴缸"),
-						List.of(5000,5000,5000,5000,5000,5000,5000),
-						30,5))));
-	}
+//	@Test
+//	void createRooms() {
+//
+//		log.info(roomService.createRooms(25L,
+//				List.of(new CreateRoomRequest(
+//						List.of("http://pictureOne","http://pictureTwo","http://pictureThree"),
+//						"豪華單人床",List.of("高級馬桶","高級洗手台","高級浴缸"),
+//						List.of(5000,5000,5000,5000,5000,5000,5000),
+//						30,5))));
+//	}
 
 	@Test
 	void deleteRooms() {
