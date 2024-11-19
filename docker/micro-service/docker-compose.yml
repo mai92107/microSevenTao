@@ -26,19 +26,12 @@ services:
       context: .
       dockerfile: DockerfileHotelUser
     environment:
-      - REDIS_SENTINELS=sentinel1:26379,sentinel2:26380
       - SPRING_DATASOURCE_URL=jdbc:mysql://hotel-user-mysql:3306/hotelData
     ports:
       - "8087:8087"
     networks:
       - micro-network
-    depends_on:
-      - hotel-user-mysql
-      - zipkin-service
-      - center-service
-      - gateway-service
-      - redis-master
-      - rabbitmq-service
+
 
   room-user-service:
     container_name: room-user-service
@@ -46,19 +39,12 @@ services:
       context: .
       dockerfile: DockerfileRoomUser
     environment:
-      - REDIS_SENTINELS=sentinel1:26379,sentinel2:26380
       - SPRING_DATASOURCE_URL=jdbc:mysql://room-user-mysql:3306/roomData
     ports:
       - "8092:8085"
     networks:
       - micro-network
-    depends_on:
-      - room-user-mysql
-      - zipkin-service
-      - center-service
-      - gateway-service
-      - redis-master
-      - rabbitmq-service
+
 
   order-user-service:
     container_name: order-user-service
@@ -71,11 +57,7 @@ services:
       - "8082:8082"
     networks:
       - micro-network
-    depends_on:
-      - order-user-mysql
-      - zipkin-service
-      - center-service
-      - gateway-service
+
 
   hotel-admin-service:
     container_name: hotel-admin-service
@@ -83,19 +65,11 @@ services:
       context: .
       dockerfile: DockerfileHotelAdmin
     environment:
-      - REDIS_SENTINELS=sentinel1:26379,sentinel2:26380
       - SPRING_DATASOURCE_URL=jdbc:mysql://hotel-admin-mysql:3306/hotelData
     ports:
       - "8088:8088"
     networks:
       - micro-network
-    depends_on:
-      - hotel-admin-mysql
-      - zipkin-service
-      - center-service
-      - gateway-service
-      - redis-master
-      - rabbitmq-service
 
   room-admin-service:
     container_name: room-admin-service
@@ -103,19 +77,12 @@ services:
       context: .
       dockerfile: DockerfileRoomAdmin
     environment:
-      - REDIS_SENTINELS=sentinel1:26379,sentinel2:26380
       - SPRING_DATASOURCE_URL=jdbc:mysql://room-admin-mysql:3306/roomData
     ports:
       - "8086:8086"
     networks:
       - micro-network
-    depends_on:
-      - room-admin-mysql
-      - zipkin-service
-      - center-service
-      - gateway-service
-      - redis-master
-      - rabbitmq-service
+
 
   order-admin-service:
     container_name: order-admin-service
@@ -128,11 +95,7 @@ services:
       - "8083:8083"
     networks:
       - micro-network
-    depends_on:
-      - order-admin-mysql
-      - zipkin-service
-      - center-service
-      - gateway-service
+
 
   user-service:
     container_name: user-service
@@ -140,18 +103,12 @@ services:
       context: .
       dockerfile: DockerfileUser
     environment:
-      - REDIS_SENTINELS=sentinel1:26379,sentinel2:26380
       - SPRING_DATASOURCE_URL=jdbc:mysql://user-mysql:3306/userData
     ports:
       - "8089:8089"
     networks:
       - micro-network
-    depends_on:
-      - user-mysql
-      - zipkin-service
-      - center-service
-      - gateway-service
-      - redis-master
+
 
   comment-service:
     container_name: comment-service
@@ -164,11 +121,7 @@ services:
       - "8084:8084"
     networks:
       - micro-network
-    depends_on:
-      - comment-mysql
-      - zipkin-service
-      - center-service
-      - gateway-service
+
 
   auth-service:
     container_name: auth-service
@@ -181,11 +134,7 @@ services:
       - "8090:8090"
     networks:
       - micro-network
-    depends_on:
-      - auth-mysql
-      - zipkin-service
-      - center-service
-      - gateway-service
+
 
     
   hotel-user-mysql:
@@ -305,58 +254,14 @@ services:
     ports:
       - "3311:3306"
 
-  redis-master:
+  redis-server:
     image: redis:latest
-    container_name: master
+    container_name: redis-server
     ports:
       - "6379:6379"
     command: ["redis-server", "--appendonly", "yes"]
     networks:
       - micro-network
-
-  redis-slave1:
-    image: redis:latest
-    container_name: slave1
-    depends_on:
-      - redis-master
-    command: ["redis-server", "--replicaof", "master", "6379"]
-    networks:
-      - micro-network
-
-  redis-slave2:
-    image: redis:latest
-    container_name: slave2
-    depends_on:
-      - redis-master
-    command: ["redis-server", "--replicaof", "master", "6379"]
-    networks:
-      - micro-network
-
-  sentinel1:
-    image: redis:latest
-    container_name: sentinel1
-    depends_on:
-      - redis-master
-    command: ["redis-sentinel", "/etc/redis/sentinel.conf"]
-    networks:
-      - micro-network
-    ports:
-      - "26379:26379"
-    volumes:
-      - ./sentinel.conf:/etc/redis/sentinel.conf
-
-  sentinel2:
-    image: redis:latest
-    container_name: sentinel2
-    depends_on:
-      - redis-master
-    command: ["redis-sentinel", "/etc/redis/sentinel.conf"]
-    networks:
-      - micro-network
-    ports:
-      - "26380:26379"
-    volumes:
-      - ./sentinel.conf:/etc/redis/sentinel.conf
 
   rabbitmq-service:
     container_name: rabbitmq
@@ -364,15 +269,6 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
-    networks:
-      - micro-network
-
-
-  zipkin-service:
-    container_name: zipkin-service
-    image: openzipkin/zipkin
-    ports:
-      - "9411:9411"
     networks:
       - micro-network
 

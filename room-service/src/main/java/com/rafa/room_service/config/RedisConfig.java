@@ -22,22 +22,15 @@ import java.time.Duration;
 @EnableCaching
 public class RedisConfig {
 
-    @Value("${spring.redis.sentinel.master}")
-    private String master;
+    @Value("${spring.redis.host}")
+    private String redisHost;
 
-    @Value("${spring.redis.sentinel.nodes}")
-    private String sentinelNodes;
+    @Value("${spring.redis.port}")
+    private int redisPort;
 
     @Bean
     public RedisConnectionFactory redisConnectionFactory() {
-        RedisSentinelConfiguration sentinelConfig = new RedisSentinelConfiguration().master(master);
-        for (String node : sentinelNodes.split(",")) {
-            String[] parts = node.split(":");
-            sentinelConfig.sentinel(parts[0], Integer.parseInt(parts[1]));
-        }
-//        String[] parts = sentinelNode.split(":");
-//        sentinelConfig.sentinel(parts[0], Integer.parseInt(parts[1]));
-        return new LettuceConnectionFactory(sentinelConfig);
+        return new LettuceConnectionFactory(redisHost, redisPort);
     }
 
     @Bean

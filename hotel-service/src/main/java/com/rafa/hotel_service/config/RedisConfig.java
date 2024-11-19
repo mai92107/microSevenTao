@@ -13,7 +13,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.connection.RedisSentinelConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
@@ -28,22 +27,15 @@ import java.util.Set;
 public class RedisConfig {
 
 
-    @Value("${spring.redis.sentinel.master}")
-    private String master;
+    @Value("${spring.redis.host}")
+    private String redisHost;
 
-    @Value("${spring.redis.sentinel.nodes}")
-    private String sentinelNodes;
+    @Value("${spring.redis.port}")
+    private int redisPort;
 
     @Bean
     public RedisConnectionFactory redisConnectionFactory() {
-        RedisSentinelConfiguration sentinelConfig = new RedisSentinelConfiguration().master(master);
-        for (String node : sentinelNodes.split(",")) {
-            String[] parts = node.split(":");
-            sentinelConfig.sentinel(parts[0], Integer.parseInt(parts[1]));
-        }
-//        String[] parts = sentinelNode.split(":");
-//        sentinelConfig.sentinel(parts[0], Integer.parseInt(parts[1]));
-        return new LettuceConnectionFactory(sentinelConfig);
+        return new LettuceConnectionFactory(redisHost, redisPort);
     }
 
 
@@ -52,8 +44,6 @@ public class RedisConfig {
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new JavaTimeModule());
         mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-
-
         return mapper;
     }
 
