@@ -16,7 +16,9 @@ import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.messaging.MessagingException;
 import org.springframework.stereotype.Service;
 
 import java.time.DayOfWeek;
@@ -87,30 +89,28 @@ public class RoomServiceImp implements RoomService {
     @Override
     public boolean deleteRoomsByRoomIds(List<Long> roomIds) {
         try {
-            log.info("(deleteRoomsByRoomIds)接獲刪除資料數量" + roomIds.size());
+            log.info("(deleteRoomsByRoomIds) 接獲刪除資料數量: {}", roomIds.size());
             Long hotelId = findHotelIdByRoomId(roomIds.get(0));
-            roomRepository.deleteAllByIdInBatch(roomIds);
+
+            roomIds.forEach(id -> roomRepository.deleteById(id));
+
+            syncRoomPublish.sendMsg(new CustomRabbitMessage("deleteRoomRoute", "roomExchange", roomIds));
+            log.info("(deleteRoomsByRoomIds) 發送 RabbitMQ 消息成功: {}", roomIds);
+
             Set<String> keys = redisTemplate.keys(generateRoomKey(hotelId, null));
-            log.info("(deleteRoomsByRoomIds)redis中hotel旅店有幾間房間" + keys.size());
-            for (Long roomId : roomIds) {
-                boolean redisDeleted = Boolean.TRUE.equals(redisTemplate.delete(generateRoomKey(hotelId, roomId)));
-                if (!redisDeleted) {
-                    log.error("(deleteRoomsByRoomIds) Redis 中刪除 roomId {} 失敗", roomId);
-                    return false; // 若 Redis 刪除失敗則返回 false
-                }
+            log.info("(deleteRoomsByRoomIds) Redis 中 hotel 旅店有幾間房間: {}", keys.size());
+
+            if (!keys.isEmpty()) {
+                redisTemplate.delete(keys);
             }
-            try {
-                syncRoomPublish.sendMsg(new CustomRabbitMessage("deleteRoomRoute", "roomExchange", roomIds));
-            } catch (Exception e) {
-                log.error("(deleteRoomsByRoomIds) 發送 RabbitMQ 消息失敗: {}", e.getMessage());
-                return false;
-            }
+            return true;
+
         } catch (Exception e) {
-            log.error("(deleteRoomsByRoomIds)" + e.getMessage());
-            return false;
+            log.error("(deleteRoomsByRoomIds) 操作失敗: {}", e.getMessage());
+            throw new RuntimeException("Delete operation failed", e);
         }
-        return true;
     }
+
 
     @Override
     public Long findHotelIdByRoomId(Long roomId) throws RoomNotFoundException {
@@ -175,7 +175,6 @@ public class RoomServiceImp implements RoomService {
         }
         log.info("(findRoomNamesByHotelId)自資料庫取room資料");
         List<String> roomNames = roomRepository.findRoomNameByHotelId(hotelId);
-
 
         return roomNames;
     }

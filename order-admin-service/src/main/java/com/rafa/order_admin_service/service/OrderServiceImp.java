@@ -8,6 +8,7 @@ import com.rafa.order_admin_service.repository.OrderRepository;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.EnableRabbit;
+import org.springframework.amqp.rabbit.annotation.Queue;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -87,14 +88,13 @@ public class OrderServiceImp implements OrderService {
         return newOrder;
     }
 
-
-    @RabbitListener(queues = "userUpdateOrderQueue")
+    @RabbitListener(queuesToDeclare = @Queue(name = "userUpdateOrderQueue", durable="true"))
     public void updateOrderStatus(Orders order) {
         Orders newOrder = orderRepository.save(order);
         log.info("(wantCancelOrder)訂單{}更新成功", newOrder.getId());
     }
 
-    @RabbitListener(queues = "createOrderQueue")
+    @RabbitListener(queuesToDeclare = @Queue (name = "createOrderQueue", durable="true"))
     public void createOrder(Orders order) {
         Orders newOrder = orderRepository.save(order);
         log.info("(createOrder)訂單{}新增成功", newOrder.getId());

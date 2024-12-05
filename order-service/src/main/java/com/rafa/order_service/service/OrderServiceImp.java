@@ -12,6 +12,7 @@ import com.rafa.order_service.rabbitMessagePublisher.SyncOrderPublish;
 import com.rafa.order_service.repository.OrderRepository;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.annotation.Queue;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
@@ -195,7 +196,7 @@ public class OrderServiceImp implements OrderService {
         return orders;
     }
 
-    @RabbitListener(queues = "adminUpdateOrderQueue")
+    @RabbitListener(queuesToDeclare = @Queue(name = "adminUpdateOrderQueue", durable="true"))
     public void updateOrderStatus(Orders order) {
         Orders newOrder = orderRepository.save(order);
         log.info("(acceptOrder)訂單{}更新成功", newOrder.getId());

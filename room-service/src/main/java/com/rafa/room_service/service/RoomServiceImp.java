@@ -10,6 +10,7 @@ import com.rafa.room_service.model.roomDto.RoomDto;
 import com.rafa.room_service.repository.RoomRepository;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.annotation.Queue;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
@@ -300,18 +301,24 @@ public class RoomServiceImp implements RoomService {
         }
     }
 
-    @RabbitListener(queues = "createRoomQueue")
+    @RabbitListener(queuesToDeclare = @Queue (name = "createRoomQueue", durable="true"))
     public void createRooms(List<Room> rooms) {
-
-        List<Room> newRooms = roomRepository.saveAllAndFlush(rooms);
-        log.info("(createRooms)儲存房間成功數量" + newRooms.size());
-
+        try {
+            List<Room> newRooms = roomRepository.saveAllAndFlush(rooms);
+            log.info("(createRooms)新增房間成功數量: " + newRooms.size());
+        } catch (Exception e) {
+            log.error("(createRooms) 新增房間過程中發生錯誤: " + e.getMessage());
+        }
     }
 
-    @RabbitListener(queues = "deleteRoomQueue")
+    @RabbitListener(queuesToDeclare = @Queue(name = "deleteRoomQueue", durable="true"))
     public void deleteRooms(List<Long> roomIds) {
-        roomRepository.deleteAllById(roomIds);
-        log.info("(deleteRooms)刪除房間成功數量" + roomIds.size());
+        try {
+            roomRepository.deleteAllById(roomIds);
+            log.info("(deleteRooms) 刪除房間成功數量: " + roomIds.size());
+        } catch (Exception e) {
+            log.error("(deleteRooms) 刪除房間過程中發生錯誤: " + e.getMessage());
+        }
     }
 
 

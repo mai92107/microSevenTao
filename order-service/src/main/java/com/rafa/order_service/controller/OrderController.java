@@ -21,7 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @RestController
-@RequestMapping("/member/order")
+@RequestMapping("/order-user")
 @Slf4j
 public class OrderController {
 

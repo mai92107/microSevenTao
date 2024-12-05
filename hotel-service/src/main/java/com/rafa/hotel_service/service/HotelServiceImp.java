@@ -13,6 +13,7 @@ import com.rafa.hotel_service.model.dto.HotelEntity;
 import com.rafa.hotel_service.repository.HotelRepository;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.annotation.Queue;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.Cache;
@@ -187,6 +188,8 @@ public class HotelServiceImp implements HotelService {
     public List<HotelCardDto> getFavoriteHotelsByUserId(Long userId) {
         //個人頁面我的最愛
         Set<String> favoriteHotels = favoriteHotels(userId);
+        if(favoriteHotels.isEmpty())
+            return new ArrayList<>();
         List<Hotel> hotels = favoriteHotels.parallelStream().map(id -> findHotelByHotelId(Long.parseLong(id)).get()).toList();
         return convertHotelsToHotelCardDtos(hotels, null, null, null);
     }
@@ -347,25 +350,25 @@ public class HotelServiceImp implements HotelService {
         return allCities;
     }
 
-    @RabbitListener(queues = "createHotelQueue")
+    @RabbitListener(queuesToDeclare = @Queue (name = "createHotelQueue", durable="true"))
     public void createHotel(Hotel hotel) {
         Hotel newHotel = hotelRepository.save(hotel);
         log.info("(createHotel)儲存旅店成功數量" + newHotel.getHotelId());
     }
 
-    @RabbitListener(queues = "deleteHotelQueue")
+    @RabbitListener(queuesToDeclare = @Queue (name = "deleteHotelQueue", durable="true"))
     public void deleteHotel(Long hotelId) {
         hotelRepository.deleteById(hotelId);
         log.info("(deleteHotel)刪除旅店成功" + hotelId);
     }
 
-    @RabbitListener(queues = "updateHotelQueue")
+    @RabbitListener(queuesToDeclare = @Queue (name = "updateHotelQueue", durable="true"))
     public void updateHotel(Hotel hotel) {
         hotelRepository.save(hotel);
         log.info("(updateHotel)旅店更新成功" + hotel.getHotelId());
     }
 
-    @RabbitListener(queues = "updateUserHotelScoreQueue")
+    @RabbitListener(queuesToDeclare = @Queue (name = "updateUserHotelScoreQueue", durable="true"))
     public void updateHotelScore(String hotelScoreData) throws HotelNotFoundException {
         log.info("(updateHotelScore)我收到更新旅店分數的資料是{}...",hotelScoreData);
         //接到的資料為hotel:{hotelId},score:{score}

@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.annotation.Queue;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
@@ -241,7 +242,7 @@ public class HotelServiceImp implements HotelService {
         return new GetHotelRoomResquest(hotel,roomIds);
     }
 
-    @RabbitListener(queues = "updateAdminHotelScoreQueue")
+    @RabbitListener(queuesToDeclare = @Queue(name = "updateAdminHotelScoreQueue", durable="true"))
     public void updateHotelScore(String hotelScoreData) throws HotelNotFoundException {
         log.info("(updateHotelScore)我收到更新旅店分數的資料是{}...",hotelScoreData);
         //接到的資料為hotel:{hotelId},score:{score}

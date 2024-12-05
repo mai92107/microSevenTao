@@ -1,9 +1,7 @@
 package com.rafa.hotel_service;
 
-import com.netflix.discovery.converters.Auto;
 import com.rafa.hotel_service.exception.HotelNotFoundException;
 import com.rafa.hotel_service.exception.SearchDataErrorException;
-import com.rafa.hotel_service.model.Hotel;
 import com.rafa.hotel_service.model.dto.HotelDetailDto;
 import com.rafa.hotel_service.model.dto.HotelEntity;
 import com.rafa.hotel_service.service.HotelService;

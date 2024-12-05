@@ -11,6 +11,7 @@ import com.rafa.comment_service.response.ApiResponse;
 import com.rafa.comment_service.service.CommentService;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -25,7 +26,7 @@ import static com.fasterxml.jackson.databind.type.LogicalType.Map;
 
 
 @RestController
-@RequestMapping("/hotel/comment")
+@RequestMapping("/comment-service")
 @Slf4j
 public class CommentController {
 
@@ -34,9 +35,6 @@ public class CommentController {
 
     @Autowired
     UserInterface userInterface;
-
-    @Autowired
-    HotelInterface hotelInterface;
 
     @Autowired
     AuthInterface authInterface;
@@ -49,9 +47,6 @@ public class CommentController {
 
     @Autowired
     SyncHotelPublish syncHotelPublish;
-
-    @Autowired
-    ObjectMapper objectMapper;
 
     @PostMapping
     public ResponseEntity<ApiResponse<Comment>> addComment(@RequestHeader("Authorization") String jwt, @RequestBody Comment comment) {
@@ -105,5 +100,10 @@ public class CommentController {
             e.printStackTrace();
         }
         return ResponseEntity.badRequest().body(ApiResponse.error(400,"評論存取失敗"));
+    }
+
+    @RabbitListener(queues = "updateAdminHotelScoreQueue")
+    public void testListener(String message) {
+        log.info("Received message: {}", message);
     }
 }

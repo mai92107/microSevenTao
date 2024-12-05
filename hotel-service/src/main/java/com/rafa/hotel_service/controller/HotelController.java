@@ -10,9 +10,7 @@ import com.rafa.hotel_service.response.ApiResponse;
 import com.rafa.hotel_service.service.HotelService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.CacheManager;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,7 +19,7 @@ import java.util.List;
 import java.util.Set;
 
 @RestController
-@RequestMapping("/hotel")
+@RequestMapping("/hotel-user")
 @Slf4j
 public class HotelController {
 
@@ -44,8 +42,8 @@ public class HotelController {
             return ResponseEntity.badRequest().body(ApiResponse.error(400, e.getMsg()));
         } catch (Exception e) {
             log.error("(findHotelByHotelId)" + e.getMessage());
+            return ResponseEntity.badRequest().body(ApiResponse.error(400, "尋找旅店發生錯誤"+e.getMessage()));
         }
-        return ResponseEntity.badRequest().body(ApiResponse.error(400, "尋找旅店發生錯誤"));
     }
 
     @GetMapping("/hotelAddress")
@@ -72,8 +70,8 @@ public class HotelController {
 
         } catch (Exception e) {
             log.error("(updateHotelLikeList)" + e.getMessage());
+            return ResponseEntity.badRequest().body(ApiResponse.error(400, "更新失敗"+e.getMessage()));
         }
-        return ResponseEntity.badRequest().body(ApiResponse.error(400, "更新失敗"));
     }
 
     @GetMapping("/userFavorites")
@@ -84,8 +82,8 @@ public class HotelController {
             return ResponseEntity.ok(ApiResponse.success("成功取得使用者喜愛清單", favoriteHotels));
         } catch (Exception e) {
             log.error("(getUserFavoriteHotels)" + e.getMessage());
+            return ResponseEntity.badRequest().body(ApiResponse.error(400, "無法取得使用者喜愛清單"+e.getMessage()));
         }
-        return ResponseEntity.badRequest().body(ApiResponse.error(400, "無法取得使用者喜愛清單"));
     }
 
     @GetMapping("/{hotelId}/userFavorites")
@@ -114,7 +112,7 @@ public class HotelController {
         } catch (Exception e) {
             e.printStackTrace();
             log.error(e.getMessage());
+            return ResponseEntity.badRequest().body(ApiResponse.error(400,"取得旅店發生錯誤"+e.getMessage()));
         }
-        return ResponseEntity.badRequest().body(ApiResponse.error(400,"取得旅店發生錯誤"));
     }
 }

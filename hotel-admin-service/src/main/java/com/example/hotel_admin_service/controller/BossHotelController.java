@@ -2,7 +2,6 @@ package com.example.hotel_admin_service.controller;
 
 import com.example.hotel_admin_service.exception.HotelNotFoundException;
 import com.example.hotel_admin_service.feign.AuthInterface;
-import com.example.hotel_admin_service.feign.OrderInterface;
 import com.example.hotel_admin_service.feign.RoomInterface;
 import com.example.hotel_admin_service.feign.UserInterface;
 import com.example.hotel_admin_service.model.dto.*;
@@ -17,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 
 @RestController
-@RequestMapping("/boss")
+@RequestMapping("/hotel-admin")
 @Slf4j
 public class BossHotelController {
 
@@ -37,7 +36,7 @@ public class BossHotelController {
     @Autowired
     RoomInterface roomInterface;
 
-    @PostMapping("/hotel")
+    @PostMapping
     public ResponseEntity<ApiResponse<HotelDto>> createHotel(@RequestHeader("Authorization") String jwt, @RequestBody CreateHotelRequest request) {
         UserDto user = userInterface.getUserProfile(jwt).getBody().getData();
         if (!user.getROLE().equals("ROLE_HOTELER")) {
@@ -54,7 +53,7 @@ public class BossHotelController {
 
     ;
 
-    @DeleteMapping("/hotel/{hotelId}")
+    @DeleteMapping("/{hotelId}")
     public ResponseEntity<ApiResponse<String>> deleteHotelByHotelId(@RequestHeader("Authorization") String jwt, @PathVariable Long hotelId) {
         Long userId = authInterface.findUserIdByJwt(jwt).getBody().getData();
         try {
@@ -72,7 +71,7 @@ public class BossHotelController {
 
     ;
 
-    @PutMapping("/hotel/{hotelId}")
+    @PutMapping("/{hotelId}")
     public ResponseEntity<ApiResponse<HotelDto>> updateHotelData(@RequestHeader("Authorization") String jwt, @PathVariable Long hotelId, @RequestBody CreateHotelRequest request) {
         try {
             Long userId = authInterface.findUserIdByJwt(jwt).getBody().getData();
@@ -86,9 +85,7 @@ public class BossHotelController {
             log.error("(updateHotelData)" + e.getMsg());
             return ResponseEntity.badRequest().body(ApiResponse.error(400, "修改失敗，請重新嘗試"));
         }
-    }
-
-    ;
+    };
 
     @GetMapping("/hotels")
     public ResponseEntity<ApiResponse<List<HotelCardDto>>> findHotelsByBoss(@RequestHeader("Authorization") String jwt) {
@@ -103,9 +100,8 @@ public class BossHotelController {
             return ResponseEntity.badRequest().body(ApiResponse.error(400, "查詢失敗，請重新嘗試"));
         }
 
-    }
+    };
 
-    ;
 
     @GetMapping("/hotelIds")
     public ResponseEntity<ApiResponse<List<Long>>> findHotelIdsByBoss(@RequestHeader("Authorization") String jwt) {
