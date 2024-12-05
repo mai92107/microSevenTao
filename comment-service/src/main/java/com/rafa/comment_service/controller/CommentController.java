@@ -9,20 +9,14 @@ import com.rafa.comment_service.model.dto.UserDto;
 import com.rafa.comment_service.rabbitMessagePublisher.SyncHotelPublish;
 import com.rafa.comment_service.response.ApiResponse;
 import com.rafa.comment_service.service.CommentService;
-import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
-import static com.fasterxml.jackson.databind.type.LogicalType.Map;
 
 
 @RestController

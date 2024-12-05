@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8084:8084"
+    depends_on:
+      - comment-mysql
+
+  comment-mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: guan7872
+      MYSQL_DATABASE: commentData
+    volumes:
+      - comment-mysql-data:/var/lib/mysql
+    ports:
+      - "3313:3306"
+
+volumes:
+  comment-mysql-data:
